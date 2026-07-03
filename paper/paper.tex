@@ -1,0 +1,183 @@
+% HARPO — independent preprint (TechRxiv / arXiv).
+% Converted 2026-07-02 from the FPT'26 Track-A 2-page submission: the former
+% appendices are now the body sections; de-anonymized; related work added.
+% Build locally via Docker (see paper/README.md):
+%   docker run --rm -v "$PWD":/work -w /work texlive/texlive:latest \
+%     latexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex
+%
+% Every quantitative claim is copied verbatim from docs/ablations/canonical/TABLE.md
+% (the single source of truth) via docs/RESULTS.md / docs/PAPER.md. Do not edit numbers here.
+%
+% TODO before submission: add the public code-repository URL to the \thanks
+% footnote once the repo is published (publish-plan step 3).
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+
+\begin{document}
+
+\title{HARPO: A Budget-Aware Repair-Then-Optimize\\Agent for HLS C/C++%
+\thanks{Preprint, July 2026. Source code and the replayable run evidence behind
+every reported number: \url{https://github.com/phucducnguyen/harpo}.}}
+
+\author{\IEEEauthorblockN{Phuc (Patrick) Duc Nguyen}\\
+\IEEEauthorblockA{Independent Researcher\\
+pnguyen2101@gmail.com\\
+ORCID: \href{https://orcid.org/0009-0000-6536-214X}{0009-0000-6536-214X}}}
+
+\maketitle
+
+\begin{abstract}
+HARPO is a budget-aware autonomous agent for High-Level Synthesis (HLS) that first
+\emph{repairs} a broken C/C++ kernel to functional correctness and then \emph{optimizes}
+performance, power, and area (PPA) under a strict per-task tool-invocation budget. It
+runs as a closed control loop---run tool, parse report, diagnose, propose one minimal
+change, verify, keep or roll back---not as a one-shot prompt, and it enforces
+correctness before PPA: a candidate must pass C-simulation before any synthesis metric
+can improve its rank.
+
+Our central finding is that, in budgeted LLM4HLS, the deeper risk is not merely whether
+the LLM writes \emph{correct} code, but whether the agent optimizes the \emph{right
+hardware objective}. A raw LLM can over-parallelize, reaching comparable throughput at
+order-of-magnitude area cost. We contribute three decision-policy fixes: (1)~a
+\emph{metric} fix that scores throughput on the design \texttt{interval\_max} rather
+than a per-loop initiation interval that can vanish under full unroll; (2)~a
+\emph{policy} fix whose default objective satisfices throughput to a target and then
+minimizes area; and (3)~an \emph{autonomy} fix---a zero-token, capped probe that
+derives the throughput target when a task gives none.
+
+We evaluate HARPO on real Vitis HLS~2025.2 targeting \texttt{xc7z020}, with a
+local free model and a deterministic recipe baseline. Every reported number is
+regenerable from committed, replayable JSON artifacts in the public repository.
+Across the demonstrated suite, 106 unit tests pass and the agent runs at \$0 LLM
+API cost.
+\end{abstract}
+
+\begin{IEEEkeywords}
+High-Level Synthesis, LLM agents, design-space exploration, budgeted optimization, FPGA.
+\end{IEEEkeywords}
+
+\section{Introduction}
+High-Level Synthesis turns C/C++ into RTL, but reaching good PPA still demands expert
+iteration over pragmas and code structure. A natural question is whether an
+\emph{autonomous LLM agent} can do that iteration: interpret a task, repair or optimize
+HLS code, invoke tool feedback, parse reports, prioritize correctness before PPA, and
+\emph{terminate within a strict tool-invocation budget}. This problem setting---budgeted
+LLM4HLS with a correctness-dominated ranking rule---follows the task formulation of the
+FPT'26 AMD FPGA Design Competition, Track~A (LLM4HLS); HARPO was built independently
+against that formulation, and this preprint reports the system and its evidence as
+standalone research.
+
+HARPO is such an agent. Beyond engineering the loop, our work isolates a subtle but
+decisive failure mode: when an LLM is free to add pragmas greedily under a naive score,
+it \emph{over-parallelizes}---on \texttt{mac8} it once reached comparable throughput at
+\textbf{13194~LUT} versus a deterministic recipe's \textbf{315~LUT} (\(\sim\)42\(\times\)),
+both functionally correct. We show this is fundamentally a \emph{scoring} problem, not a
+prompting problem, and fix it with three small, named changes to the agent's
+decision-making (Sec.~\ref{app:scoring}). The contributions are:
+\begin{itemize}
+  \item a budget-aware repair-then-optimize agent with a \emph{structural}
+    correctness-before-PPA guarantee (Sec.~\ref{app:arch});
+  \item three decision-policy fixes---metric, policy, and autonomy---each motivated by a
+    concrete, measured failure and re-baselined on real Vitis (Sec.~\ref{app:scoring});
+  \item an honest, reproducible recipe-vs-LLM ablation showing where a deterministic
+    precise-pragma library beats a raw LLM and where it cannot reach
+    (Secs.~\ref{app:scoring} and~\ref{app:results});
+  \item full measured results, an honest task-coverage map, and a \$0-cost, local-only
+    reproducibility recipe (Secs.~\ref{app:results}, \ref{app:coverage},
+    and~\ref{app:repro}).
+\end{itemize}
+
+\section{Related Work}
+\label{sec:related}
+Pragma-level design-space exploration long predates LLMs: HLS surveys catalogue the
+gap between naive C and expert-tuned kernels~\cite{nane2016survey}, and search-based
+tools such as AutoDSE~\cite{autodse} treat pragma insertion as a bottleneck-guided
+optimization problem. HARPO's deterministic recipe library is a deliberately
+minimal member of this family---a catalogue of exact, correct-by-construction pragmas
+rather than a search---used here both as a provider and as an ablation baseline.
+
+More recently, LLMs have been applied across the HLS flow: refactoring software C
+into synthesizable C (C2HLSC~\cite{c2hlsc}), LLM-driven end-to-end flows with
+profiling and DSE (HLSPilot~\cite{hlspilot}, ChatHLS~\cite{chathls}), fine-tuned
+pragma insertion (LIFT~\cite{lift}), LLM-guided design-space exploration
+(iDSE~\cite{idse}), and benchmarks for evaluating LLMs on HLS design tasks
+(HLS-Eval~\cite{hlseval}). These works largely target design \emph{quality} or
+\emph{coverage} given generous tool access.
+
+HARPO differs in three ways. First, the \emph{tool-invocation budget} is a
+first-class constraint: every csim, csynth, and LLM call is metered, gated by policy,
+and reported. Second, correctness-before-PPA is \emph{structural}, not advisory: an
+optimization's synthesis metrics are never even read until the candidate re-passes
+C-simulation. Third, rather than showcasing the LLM, we ablate it honestly against a
+zero-token deterministic baseline and find that under a naive score the LLM's fluency
+is not the binding risk---the \emph{objective} is. All of this runs on a small local
+model at \$0 API cost, whereas most prior work relies on frontier commercial models.
+
+% ===================== BODY SECTIONS (former appendices) =====================
+\input{appendix/A-architecture.tex}
+\input{appendix/C-scoring.tex}
+\input{appendix/B-results.tex}
+\input{appendix/E-coverage.tex}
+\input{appendix/D-reproducibility.tex}
+
+\section{Conclusion}
+HARPO demonstrates that a budgeted, correctness-first HLS agent is buildable with
+modest parts: a deterministic parser and diagnosis engine, an isolated candidate store,
+a metered budget with policy gates, a precise-pragma recipe library, and a small local
+LLM behind it. The evidence supports one transferable lesson: in agentic hardware
+optimization, the scoring function is load-bearing. A greedy loop under a plausible but
+subtly wrong metric will faithfully optimize its way to a bad design---rewarding
+over-unrolling, or trading an order of magnitude of area for marginal throughput---and
+no amount of prompt engineering fixes that, because the defect is not in the proposal
+mechanism but in what the agent is told to want. Scoring throughput on a metric that
+cannot vanish (\texttt{interval\_max}), satisficing throughput to a target before
+minimizing area, and deriving that target with a capped zero-token probe were each
+small changes; together they invert the ranking between an elegant 315-LUT design and
+a 13194-LUT one. We release the agent, its tasks, and the replayable evidence behind
+every number so that both the system and its failure modes can be checked directly.
+
+\begin{thebibliography}{9}
+\bibitem{nane2016survey}
+R.~Nane \emph{et al.}, ``A survey and evaluation of FPGA high-level synthesis tools,''
+\emph{IEEE Trans. Computer-Aided Design of Integrated Circuits and Systems},
+vol.~35, no.~10, pp. 1591--1604, 2016.
+
+\bibitem{autodse}
+A.~Sohrabizadeh, C.~H. Yu, M.~Gao, and J.~Cong, ``AutoDSE: Enabling software
+programmers to design efficient FPGA accelerators,'' arXiv:2009.14381, 2020.
+
+\bibitem{c2hlsc}
+L.~Collini, S.~Garg, and R.~Karri, ``C2HLSC: Can LLMs bridge the
+software-to-hardware design gap?'' arXiv:2406.09233, 2024.
+
+\bibitem{hlspilot}
+C.~Xiong, C.~Liu, H.~Li, and X.~Li, ``HLSPilot: LLM-based high-level synthesis,''
+in \emph{Proc. IEEE/ACM Int. Conf. Computer-Aided Design (ICCAD)}, 2024;
+arXiv:2408.06810.
+
+\bibitem{hlseval}
+S.~Abi-Karam and C.~Hao, ``HLS-Eval: A benchmark and framework for evaluating LLMs
+on high-level synthesis design tasks,'' arXiv:2504.12268, 2025.
+
+\bibitem{lift}
+N.~Prakriya, Z.~Ding, Y.~Sun, and J.~Cong, ``LIFT: LLM-based pragma insertion for
+HLS via GNN supervised fine-tuning,'' arXiv:2504.21187, 2025.
+
+\bibitem{idse}
+R.~Li, J.~Xiong, and X.~Wang, ``iDSE: Navigating design space exploration in
+high-level synthesis using LLMs,'' arXiv:2505.22086, 2025.
+
+\bibitem{chathls}
+R.~Li, J.~Xiong, X.~He, J.~Zhao, J.~Lv, H.~Fang, L.~Qi, and X.~Wang, ``ChatHLS:
+Towards systematic design automation and optimization for high-level synthesis,''
+arXiv:2507.00642, 2025.
+\end{thebibliography}
+
+\end{document}

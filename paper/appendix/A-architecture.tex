@@ -1,0 +1,174 @@
+\section{The HARPO Agent}\label{app:arch}
+
+HARPO normalizes a task bundle (\texttt{spec/constraints/budget} JSON)
+into one \texttt{TaskContext}---top function, sources, testbench, part,
+clock, policy, budget---all \emph{injected}, never hardcoded, so the same
+agent runs an external evaluator's tasks unchanged. A tool runner
+dispatches stages to a backend: host \texttt{g++} (functional csim, since
+g++ ignores \texttt{\#pragma HLS}) or \texttt{vitis\_hls} (real
+csim+csynth). A deterministic report parser maps logs to typed statuses; a
+rule-based diagnosis engine maps a status to an action. Patch providers
+share one protocol with three implementations: \texttt{recipe} (a
+deterministic precise-pragma library, 0~tokens), \texttt{ollama} (a local
+LLM), and \texttt{mock} (for tests). The two loops are \emph{repair} (csim
+$\rightarrow$ diagnose $\rightarrow$ patch $\rightarrow$ re-csim) and
+\emph{optimize} (baseline csim+csynth $\rightarrow$ propose pragma
+$\rightarrow$ apply $\rightarrow$ re-verify csim $\rightarrow$ csynth
+$\rightarrow$ keep iff the score strictly improves); \texttt{pipeline}
+chains them on one shared budget.
+
+In detail, HARPO is built from six cooperating components and two
+control loops, chained by a pipeline that runs on a single shared per-task
+budget account. This section details each component, the operational
+steps of each loop, the \texttt{BudgetManager} that meters all tool
+calls, the correctness-dominated lexicographic score, and the
+correctness-preserving invariant that makes ``correctness before PPA''
+structural rather than advisory.
+
+\subsection{The six components}\label{app:arch:components}
+
+\begin{enumerate}
+  \item \textbf{Task loader.} Normalizes a task bundle
+    (\texttt{spec.json} + \texttt{constraints.json} +
+    \texttt{budget.json}) into one \texttt{TaskContext}: top function,
+    source/testbench file lists, part, clock, policy, and budget. Part,
+    clock, and sources are \emph{injected}, never hardcoded, so the same
+    agent runs the evaluator's tasks unchanged.
+  \item \textbf{Tool runner.} Dispatches a stage to a backend:
+    \texttt{gpp} (host g++ compile+run = functional csim, no Vitis
+    needed, since g++ ignores \texttt{\#pragma HLS}) or
+    \texttt{vitis\_hls} (real csim+csynth via a generated
+    \texttt{run\_harpo.tcl}).
+  \item \textbf{Report parser.} \texttt{parse\_csim} $\rightarrow$
+    \{pass, compile\_error, functional\_fail, timeout,
+    tool\_unavailable\}; \texttt{parse\_csynth} $\rightarrow$ II, depth,
+    latency best/worst, Fmax, LUT/FF/DSP/BRAM + util\% from the Vitis
+    XML, with timing/resource violations.
+  \item \textbf{Diagnosis engine.} Rule-based and deterministic (no
+    model): maps a parsed status to a recommended action. A
+    clean/improvable csynth pass yields \texttt{optimize\_ppa}; a
+    repeated failure escalates to \texttt{rollback\_or\_escalate}.
+  \item \textbf{Patch providers.} A uniform \texttt{PatchProvider}
+    protocol with three implementations: \texttt{mock} (deterministic
+    string edits, for tests/demo), \texttt{recipe} (deterministic
+    precise-pragma library, no tokens), and \texttt{ollama} (local LLM
+    over stdlib \texttt{urllib}, never raises---degrades to the next
+    provider). Each reports \texttt{last\_usage} tokens.
+  \item \textbf{Candidate store + lexicographic score.} Every attempt
+    is an isolated, forkable copy of the source; the edited kernel is
+    compiled against the \emph{un-edited} testbench; the winner is
+    whichever candidate scores highest. The \texttt{BudgetManager} is
+    the budget spine (per-tool limits + reserve + policy gates).
+\end{enumerate}
+
+\subsection{The two control loops}\label{app:arch:loops}
+
+The agent runs two loops over the candidate store. The repair loop
+restores correctness; the optimize loop improves power, performance, and
+area (PPA) without ever breaking correctness. Rendered as step
+sequences rather than a wide ASCII diagram, they are as follows.
+
+\subsubsection{Repair loop (correctness)}
+\begin{enumerate}
+  \item Run csim via \texttt{gpp}, parse the report, and diagnose.
+  \item If csim passes, stop: the current candidate is the winner
+    (DONE).
+  \item Otherwise check \texttt{budget.policy\_allows(llm)}.
+  \item If allowed, call \texttt{provider.propose()} in provider order
+    (\texttt{recipe} $\rightarrow$ \texttt{ollama}), accumulating
+    tokens.
+  \item Run \texttt{check\_contract} (signature / testbench / globals).
+  \item If the contract holds, fork the source, apply the patch, and
+    loop back to step~1.
+  \item Stop on any of: csim pass; \texttt{max\_steps} reached; budget
+    exhausted; or a repeated/regressed state.
+\end{enumerate}
+
+\subsubsection{Optimize loop (PPA, never breaks correctness)}
+\begin{enumerate}
+  \item Require the baseline csim to pass; otherwise return ``run repair
+    first.''
+  \item Run the baseline csynth to obtain \texttt{baseline\_metrics}.
+  \item Loop while \texttt{steps < max} and
+    \texttt{no\_improve < patience}:
+  \begin{enumerate}
+    \item \texttt{diagnose\_csynth} $\rightarrow$
+      \texttt{provider.propose()}.
+    \item \texttt{check\_contract}; fork; \texttt{apply\_patch}.
+    \item \textbf{Re-verify csim} on the forked candidate; if it broke
+      functional behavior, DISCARD the candidate.
+    \item If csim still passes, run \texttt{csynth(child)}.
+    \item Compute \texttt{score(child)}; if it is strictly greater than
+      \texttt{score(best)}, ACCEPT, else REJECT.
+  \end{enumerate}
+\end{enumerate}
+
+\subsubsection{Pipeline}
+\texttt{run\_pipeline} chains repair then optimize on \textbf{one}
+shared per-task \texttt{BudgetManager}, so repair and optimize debit the
+same account.
+
+\subsection{BudgetManager (the budget spine)}\label{app:arch:budget}
+
+The \texttt{BudgetManager} is constructed from \texttt{budget.json}
+(\texttt{mode: per\_tool}). Its per-tool limits are
+\texttt{\{static\_check:100, csim:20, csynth:10, cosim:5,
+llm\_calls:30\}}, with a held-back \texttt{reserve
+\{final\_csim:1, final\_csynth:1, final\_cosim:1\}}. A missing limit is
+unlimited. \texttt{can(action)} is true only while
+$\texttt{spent} < \texttt{limit} - \texttt{reserve}$---the reserve
+guarantees a winner can always be re-verified at the end.
+
+\texttt{policy\_allows} enforces three gates, in order:
+\begin{enumerate}
+  \item \textbf{Budget} --- \texttt{can(action)} must hold before the
+    call.
+  \item \textbf{Stage ordering} --- no csynth/cosim before csim passes.
+  \item \textbf{Stop/rollback guard} --- refuse another LLM call when
+    the state is \emph{repeated} or \emph{regressed}.
+\end{enumerate}
+
+These ``don't-waste rules'' make tool calls---the scarce resource the
+setting meters---the budgeted quantity: no csynth before csim
+passes, and no fresh LLM call when re-trying a failing fix would burn
+budget for nothing. The four demonstrated tasks of Sec.~\ref{app:suite} spent
+\textbf{42 tool calls} and \textbf{2400 tokens} total---comfortably inside the
+per-task limits (csim~20, csynth~10, llm\_calls~30).
+
+\subsection{The correctness-dominated lexicographic score}\label{app:arch:score}
+
+Ranking proceeds top-down so that correctness dominates PPA:
+\begin{enumerate}
+  \item \textbf{Correctness tier} --- 0: csim unknown/fail; 1: csim
+    pass; 2: csim+csynth pass. A tier-2 candidate always outranks a
+    tier-1, regardless of PPA.
+  \item \textbf{Throughput on the design \texttt{interval\_max}} (within
+    a tier) --- \emph{not} the per-loop II, which is diagnostic-only.
+  \item \textbf{Objective-dependent secondary order.} The default
+    objective is \texttt{satisfice\_then\_area}: once a candidate meets
+    the per-task \texttt{throughput\_target} it is ranked by lowest
+    normalized \texttt{area\_score}, then ADP (area $\times$ interval).
+\end{enumerate}
+
+The other objectives (\texttt{speed\_first}, \texttt{area\_first},
+\texttt{adp}, \texttt{pareto\_report}) reorder these terms. The old
+II-first, latency, LUT lexicographic order is no longer the live score;
+ranking II ahead of latency is the right default for
+streamed/throughput kernels but can \emph{raise single-call latency}
+(on \texttt{matmul\_001}, \texttt{latency\_worst} rose
+$260 \rightarrow 518$ even as II improved $4 \rightarrow 1$, because the
+loop greedily takes the initiation-interval win), which is why the
+per-task objective knob exists.
+
+\subsection{The correctness-preserving invariant}\label{app:arch:invariant}
+
+An optimization is accepted only if it (a)~still passes csim AND
+(b)~strictly improves the score. Every forked candidate is re-run
+through csim \emph{before} its csynth metrics are read; if a pragma
+broke functional behavior, the candidate is discarded and its metrics
+are never trusted. This is the structural guarantee behind
+``correctness before PPA'': the agent can never trade a wrong-but-fast
+design up the ranking. The invariant is proven by a hermetic test,
+\texttt{tests/test\_optimize\_safety.py} with
+\texttt{tasks/trap\_breakscsim\_001}; \textbf{106 unit tests} total, all
+green.

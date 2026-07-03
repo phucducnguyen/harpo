@@ -1,0 +1,15 @@
+{
+  "mode": "per_tool",
+  "limits": {
+    "static_check": 100,
+    "csim": 20,
+    "csynth": 10,
+    "cosim": 5,
+    "llm_calls": 30
+  },
+  "reserve": {
+    "final_csim": 1,
+    "final_csynth": 1,
+    "final_cosim": 1
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "task_id": "unroll8_001",
+  "description": "Correct-but-unoptimized fixed 16-wide inner reduction (out[i] = sum_{k=0..15} in[i*16+k] << (k & 3)). Optimization-loop demo: csim already PASSES; the inner k-loop runs sequentially, leaving real PPA headroom. Fully unrolling the inner loop parallelizes the shift-accumulate -> large latency drop without changing results.",
+  "expected": "csim_pass=true; optimize lowers latency while keeping csim_pass=true",
+  "top_function": "unroll8",
+  "language": "cpp",
+  "entry_files": [
+    "src/unroll8.cpp",
+    "src/unroll8.h"
+  ],
+  "testbench_files": [
+    "tb/tb_unroll8.cpp"
+  ],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      {
+        "name": "in",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "out",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "output"
+      }
+    ]
+  },
+  "numerics": {
+    "comparison": "exact",
+    "atol": 0,
+    "rtol": 0
+  },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": [
+      "src/**",
+      "directives/**"
+    ]
+  },
+  "objective": "satisfice_then_area",
+  "throughput_target": 128
+}

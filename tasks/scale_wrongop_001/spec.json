@@ -1,0 +1,24 @@
+{
+  "task_id": "scale_wrongop_001",
+  "description": "Scale kernel out[i] = in[i] * k with a planted wrong operator (+ instead of *). csim FAILS with a clean MISMATCH. Repair target.",
+  "expected": "csim_pass=false until repaired; signature + testbench must be preserved",
+  "top_function": "scale",
+  "language": "cpp",
+  "entry_files": ["src/scale.cpp", "src/scale.h"],
+  "testbench_files": ["tb/tb_scale.cpp"],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      { "name": "in",  "kind": "m_axi", "dtype": "int", "direction": "input" },
+      { "name": "out", "kind": "m_axi", "dtype": "int", "direction": "output" },
+      { "name": "k",   "kind": "s_axilite", "dtype": "int", "direction": "input" },
+      { "name": "n",   "kind": "s_axilite", "dtype": "int", "direction": "input" }
+    ]
+  },
+  "numerics": { "comparison": "exact", "atol": 0, "rtol": 0 },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": ["src/**", "directives/**"]
+  }
+}

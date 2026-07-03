@@ -1,0 +1,4 @@
+[
+  ["mac8.cpp", "void mac8(const int in[IN_SIZE], int out[OUT_SIZE]) {\n", "void mac8(const int in[IN_SIZE], int out[OUT_SIZE]) {\n#pragma HLS ARRAY_PARTITION variable=in cyclic factor=8 dim=1\n"],
+  ["mac8.cpp", "for (int i = 0; i < OUT_SIZE; i++) {\n", "for (int i = 0; i < OUT_SIZE; i++) {\n#pragma HLS PIPELINE\n"]
+]

@@ -1,0 +1,212 @@
+\section{Scoring Overhaul and Recipe-vs-LLM Analysis}\label{app:scoring}
+
+This section develops the paper's central contribution: why a
+deterministic recipe library beats a raw LLM on structured-reduction kernels, why
+the area blow-up of the LLM arm was ultimately a \emph{scoring} defect rather than a
+prompting defect, and how two distinct fixes (plus an autonomy probe) make the
+elegant recipe outrank the LLM under honest scoring. All numbers are copied verbatim
+from the committed evidence under \texttt{runs/} and \texttt{docs/ablations/};
+the canonical 21-row evidence table is \texttt{docs/ablations/canonical/TABLE.md},
+regenerable via \texttt{scripts/ablation\_table.py}.
+
+\subsection{The recipe library}\label{app:scoring:recipes}
+
+The deterministic \textbf{recipe library} (\texttt{recipes.py}) emits
+\emph{fully specified}, correct-by-construction HLS pragmas, one per call, by robust
+text scanning (\texttt{ARRAY\_PARTITION cyclic factor=N dim=1},
+\texttt{PIPELINE II=1}, \texttt{UNROLL factor=N}, \ldots), each validated to compile by
+an offline g++ syntax self-test. It costs \textbf{0 tokens}. The optimize default
+provider order is \texttt{recipe,ollama} --- precise deterministic recipes first, the
+LLM only for the tail the catalogue cannot reach (``dumbest reliable tool first'').
+
+\subsection{The headline mac8 ablation}\label{app:scoring:headline}
+
+Table~\ref{tab:headline} reports the headline ablation
+(\texttt{docs/ablations/recipe-vs-llm.md}): the same optimize loop, the same kernel
+\texttt{mac8\_001}, two providers, real Vitis HLS 2025.2.
+
+\begin{table}[h]
+\centering\small
+\caption{Headline \texttt{mac8\_001} ablation: recipe vs.\ raw LLM, real Vitis HLS 2025.2.}
+\label{tab:headline}
+\begin{tabular}{lrrrrrr}
+\toprule
+design & II & latency & interval & LUT & FF & tokens \\
+\midrule
+baseline      & 4   & 1026 & 1024 & 369        & 153 & --- \\
+recipe-best   & \textbf{1} & 259  & 256  & \textbf{315}   & 126 & \textbf{0} \\
+ollama-best   & n/a$^{1}$ & \textbf{129} & 128  & \textbf{13194} & 322 & \textbf{34387} \\
+\bottomrule
+\end{tabular}
+
+\vspace{2pt}
+{\footnotesize $^{1}$ The LLM fully unrolls the outer loop, so Vitis reports no
+per-iteration II (\texttt{ii: null}); throughput shows as total interval 128
+(vs.\ baseline 1024) --- a real, correct throughput win, paid for in area. Both arms
+re-verified csim-correct. The recipe-best move was a single
+\texttt{ARRAY\_PARTITION cyclic factor=8 dim=1}; the LLM stacked
+partition$\times$2 + \texttt{PIPELINE II=1} + \texttt{UNROLL factor=8}.}
+\end{table}
+
+This is \textbf{$\sim$42$\times$ area for comparable throughput} (recipe 315 LUT vs.\
+LLM 13194 LUT; the LLM is in fact lower-latency, 129 vs.\ 259). For
+\texttt{xc7z020} (53{,}200 LUT) the recipe sits at 0.6\% utilization, the LLM design
+at 24\%. The LLM arm was run \textbf{3$\times$} and was \textbf{highly stable} ---
+identical winning candidate, four-pragma stack, and PPA (LUT 13194, latency 129,
+FF 322, 34{,}387 tokens) every time. The blow-up is consistent behavior, not a draw.
+
+\subsection{The honest corrected cause: over-parallelization, enabled by the score}\label{app:scoring:cause}
+
+A prior note framed the blow-up as an \emph{imprecise} \texttt{ARRAY\_PARTITION}
+(missing the partition type) defaulting to \texttt{complete}. With the current
+optimizer prompt (\texttt{\_OLLAMA\_OPT\_SYSTEM\_PROMPT}, which forbids bare
+\texttt{ARRAY\_PARTITION} and warns that omitting the type ``detonates area'') the LLM
+no longer makes that mistake --- every partition it emitted was a fully-specified
+\texttt{cyclic factor=N}. The area blow-up \textbf{reproduced anyway, via a different
+mechanism}: the LLM stacks \texttt{PIPELINE II=1} \emph{plus} \texttt{UNROLL factor=8}
+on top of partitioning, fully spatially unrolling the reduction. Each step strictly
+improves the lexicographic score (II $\rightarrow$ latency dominate area), so the
+greedy loop accepts the ever-larger-but-faster design. The lesson, sharpened: a raw
+LLM is fluent but imprecise about \emph{how hard to push} --- it over-applies
+parallelism for marginal latency at order-of-magnitude area cost, while the recipe
+applies exactly the one pragma that unblocks II=1 and stops.
+
+Crucially, a follow-up re-ablation traced the \emph{enabler} of the blow-up to the
+\textbf{score itself}, not the LLM. A fully-unrolled loop reports no per-loop II
+(\texttt{None}), which the old throughput term sorted as neutral and thus ranked
+\emph{above} a real II$\geq$1 --- so the loop literally rewarded over-unrolling (it
+even accepted a design with interval 3073 vs.\ the baseline's 1024). Prompt hardening
+alone does not fix this. Both durable fixes (\S\ref{app:scoring:fixes}) are now
+implemented.
+
+\subsection{The two fixes, in depth}\label{app:scoring:fixes}
+
+The over-parallelization enabler is \textbf{two distinct defects} with \textbf{two
+distinct fixes}, both implemented and re-baselined on real Vitis (106/106 unit tests
+green).
+
+\paragraph{Fix 1 --- metric: throughput is scored on the design \texttt{interval\_max}, not the per-loop \texttt{PipelineII}.}
+The per-loop term sorted a fully-unrolled loop's missing II (\texttt{None}) as neutral
+0, beating a real II$\geq$1 and rewarding over-unrolling. \texttt{interval\_max} is
+always reported by Vitis; per-loop \texttt{ii} is now diagnostic-only. Under it, the
+accepted \texttt{mac8\_001} interval-3073 design correctly loses to the baseline
+(1024), and the old \texttt{conv2d\_001} over-pragma'd candidate (interval 328)
+correctly loses to the baseline (191) --- while the proper recipe move now drives
+conv2d to interval 82 under a target (\S\ref{app:scoring:rebaseline}).
+
+\paragraph{Fix 2 --- policy: the default objective is \texttt{satisfice\_then\_area}.}
+The per-task objective is a 5-value enum --- \texttt{speed\_first}, \texttt{area\_first},
+\texttt{adp}, \texttt{satisfice\_then\_area} (default), \texttt{pareto\_report}
+(\texttt{spec.json} \texttt{objective}; legacy \texttt{throughput}/\texttt{latency}
+alias to \texttt{speed\_first}; unknown/absent $\rightarrow$ default).
+\texttt{interval\_max} scoring alone does not stop a \emph{genuinely faster but huge}
+design from winning on throughput; satisficing throughput to a per-task
+\texttt{throughput\_target} and then minimizing area is what makes the elegant recipe
+(interval 256 / 315 LUT) outrank the LLM blow-up (128 / 13194 LUT).
+
+Supporting these, a new \texttt{harpo/area.py} provides a normalized
+\texttt{area\_score} (used/available summed over LUT/FF/DSP/BRAM, with \emph{no
+per-resource weights} so scarcity is not double-counted; per-part fallback for
+xc7z020), \texttt{adp = area\_score $\times$ interval\_max}, \texttt{resource\_growth\_ratio},
+and a \texttt{pareto\_front} helper for the reporting mode. A new per-task
+\texttt{throughput\_target} field carries the \texttt{interval\_max} ceiling the
+satisfice policy targets.
+
+\paragraph{Fix 3 --- autonomy: a recipe-only capped probe derives the target when the task gives none.}
+\texttt{satisfice\_then\_area} needs a \texttt{throughput\_target}; rather than require
+a hand-written one, \texttt{harpo/probe.py} derives it. The probe is deliberately
+minimal: \textbf{recipe-only, zero LLM tokens}, capped at \texttt{max\_synth}
+single-pragma forks from the baseline (default 4), \textbf{full unroll excluded}. The
+target is the lowest \texttt{interval\_max} among the baseline and any probe candidate
+that csim+csynth-passes \emph{and} stays within \texttt{area\_score} $\leq$ 2$\times$
+baseline; if nothing beats the baseline within that cap, it falls back to the baseline
+\texttt{interval\_max} (never an unreachable goal). On \texttt{mac8\_001} with its
+target stripped, the probe derives \textbf{256} --- exactly the hand-set value --- at
+0 tokens.
+
+\subsection{Re-baseline under the new scoring}\label{app:scoring:rebaseline}
+
+Recipe arm, real Vitis 2025.2, \texttt{xc7z020clg400-1}, 10 ns. Every number here is a
+row in the canonical evidence table (\texttt{docs/ablations/canonical/TABLE.md}). The
+two fixes show on two kernels.
+
+\paragraph{\texttt{mac8} (Fix 1, metric).} Full unroll makes \texttt{interval\_max}
+\emph{worse} (3073) $\rightarrow$ Fix 1 discards it, and the recipe reaches interval
+256 / LUT 315.
+
+\paragraph{\texttt{matmul} (Fix 2, policy).} Full unroll makes \texttt{interval\_max}
+genuinely \emph{better}, so the metric fix alone will not stop it. The two matmul
+recipe rows make the case directly (Table~\ref{tab:matmul}):
+\texttt{speed\_first} reaches interval 19 / LUT 5689 / FF 14999 (area\_score 1.121,
+ADP 21.292), while \texttt{satisfice\_then\_area} (target 72) keeps interval 44 /
+LUT 3121 / FF 5932 (area\_score 0.3326, ADP 14.6344) --- $\sim$45\% fewer LUT,
+$\sim$60\% fewer FF, \emph{and} a lower ADP, for 25 cycles of interval. The target is
+what governs the over-push.
+
+\begin{table}[h]
+\centering\small
+\caption{\texttt{matmul\_001} recipe arm: \texttt{satisfice\_then\_area} (target 72) vs.\ \texttt{speed\_first}.}
+\label{tab:matmul}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrrr}
+\toprule
+policy & interval & LUT & FF & area\_score & ADP \\
+\midrule
+baseline                & 256 & 706  & 579   & 0.04599 & 11.7722 \\
+satisfice (target 72)   & 44  & \textbf{3121} & \textbf{5932}  & 0.3326  & \textbf{14.6344} \\
+speed\_first            & \textbf{19} & 5689 & 14999 & 1.121   & 21.292 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{PolyBench (Fix 3, probe).} Three PolyBench kernels (gemm/atax/bicg, integer
+16$\times$16) extend the evidence beyond hand-built toys; all three auto-derive their
+target via the Fix-3 probe (Table~\ref{tab:polybench}). \texttt{gemm} conservatively
+falls back to baseline 2060 (no improvement, baseline kept); \texttt{atax} derives a
+real target of 280 and reaches interval 64 / LUT 3907; \texttt{bicg} derives 162 and
+reaches interval 60 / LUT 3596 --- both optimizing within a 2$\times$ area cap.
+
+\begin{table}[h]
+\centering\small
+\caption{PolyBench recipe arm (16$\times$16 integer), targets auto-derived by the Fix-3 probe.}
+\label{tab:polybench}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llrrrr}
+\toprule
+kernel & target & interval & LUT & FF & ADP \\
+\midrule
+gemm\_001 & 2060 (fallback)     & 2060 & 1238 & 1180 & 126.965 \\
+atax\_001 & 280 (auto-derived)  & 64   & 3907 & 5596 & 22.0298 \\
+bicg\_001 & 162 (auto-derived)  & 60   & 3596 & 8929 & 35.2726 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\subsection{Recipe-vs-LLM comparison under honest scoring}\label{app:scoring:comparison}
+
+Table~\ref{tab:recipe-vs-llm} is the head-to-head, recipe vs.\ raw LLM under the
+corrected scoring (the four re-baselined LLM arms). On structured-reduction kernels the
+raw LLM over-parallelizes and, under the corrected scoring, \textbf{wins nothing}; the
+precise recipe applies the single unblocking pragma. On kernels the safe recipes cannot
+crack both are null; elsewhere they are comparable. The \texttt{recipe}-before-\texttt{ollama}
+default is what captures the best of both.
+
+\begin{table*}[t]
+\centering\small
+\caption{Recipe vs.\ raw LLM under honest (\texttt{interval\_max} + \texttt{satisfice\_then\_area}) scoring.}
+\label{tab:recipe-vs-llm}
+\begin{tabular}{llll}
+\toprule
+kernel & recipe arm & raw-LLM arm & winner \\
+\midrule
+mac8\_001   & interval 256 / LUT 315                          & no improvement (full-unroll interval 3073 discarded) & \textbf{recipe} \\
+matmul\_001 & interval 44 / LUT 3121 \emph{(satisfice, target 72)} & no improvement (no candidate meets target)          & \textbf{recipe} \\
+gemm\_001   & no improvement (probe fallback, target 2060)    & no improvement                                       & tie (both null) \\
+atax\_001   & interval 64 / LUT 3907 / ADP 22.0               & interval 81 / LUT 3994 / ADP 28.0                    & recipe (marginal) \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+LLM-arm re-baselines for the remaining hand-built kernels, and additional PolyBench
+ports, remain future work; the released evidence covers the four head-to-head kernels
+above.

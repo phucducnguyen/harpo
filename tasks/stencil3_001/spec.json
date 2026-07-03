@@ -1,0 +1,46 @@
+{
+  "task_id": "stencil3_001",
+  "description": "Correct-but-unoptimized 1-D 3-tap stencil (out[i] = in[i]+in[i+1]+in[i+2]). Optimization-loop demo: csim already PASSES; the outer loop is not pipelined and `in` is a single-port memory, leaving real PPA headroom. Cyclic-partitioning `in` + pipelining the loop gives parallel reads -> large latency drop without changing results.",
+  "expected": "csim_pass=true; optimize lowers latency while keeping csim_pass=true",
+  "top_function": "stencil3",
+  "language": "cpp",
+  "entry_files": [
+    "src/stencil3.cpp",
+    "src/stencil3.h"
+  ],
+  "testbench_files": [
+    "tb/tb_stencil3.cpp"
+  ],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      {
+        "name": "in",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "out",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "output"
+      }
+    ]
+  },
+  "numerics": {
+    "comparison": "exact",
+    "atol": 0,
+    "rtol": 0
+  },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": [
+      "src/**",
+      "directives/**"
+    ]
+  },
+  "objective": "satisfice_then_area",
+  "throughput_target": 257
+}

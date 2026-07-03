@@ -1,0 +1,22 @@
+{
+  "task_id": "fir_001",
+  "description": "Fixed-size 8-tap integer FIR filter. Optimization-loop demo: csim already PASSES; the outer loop is not pipelined and `in` is a single-port memory, leaving real PPA headroom (ARRAY_PARTITION + #pragma HLS PIPELINE II=1 -> large latency drop, DSP-backed multiplies) without changing results.",
+  "expected": "csim_pass=true; optimize lowers latency while keeping csim_pass=true",
+  "top_function": "fir",
+  "language": "cpp",
+  "entry_files": ["src/fir.cpp", "src/fir.h"],
+  "testbench_files": ["tb/tb_fir.cpp"],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      { "name": "in",  "kind": "ap_memory", "dtype": "int", "direction": "input" },
+      { "name": "out", "kind": "ap_memory", "dtype": "int", "direction": "output" }
+    ]
+  },
+  "numerics": { "comparison": "exact", "atol": 0, "rtol": 0 },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": ["src/**", "directives/**"]
+  }
+}

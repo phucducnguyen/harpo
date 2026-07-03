@@ -1,0 +1,80 @@
+\section{Reproducibility}\label{app:repro}
+
+Everything in this paper runs on \emph{free, local} infrastructure at \$0 LLM
+cost, and every reported number is regenerable from committed, replayable JSON
+artifacts in the public repository.
+
+\subsection{Environment}
+
+The LLM is a local \textbf{qwen} model served by Ollama over plain HTTP; the
+endpoint and model are read from the environment variables
+\texttt{HARPO\_OLLAMA\_URL} and \texttt{HARPO\_OLLAMA\_MODEL}, so there
+is no per-token cost. Synthesis uses \textbf{Vitis HLS 2025.2}, which is free on
+Linux for releases prior to 2026.1. The target part is
+\texttt{xc7z020clg400-1} (an entry-level device covered by the free tier) at a
+10\,ns clock. All experiments were run on a Linux workstation. The agent package
+itself is \textbf{stdlib-only} (no third-party Python dependencies).
+
+\subsection{Command one-liners}
+
+Source the Vitis environment once before any csynth/optimize/pipeline command;
+the repair, optimize, and pipeline entry points then drive the full flow, and
+\texttt{run\_suite.py} aggregates per-run results into a summary table.
+
+{\footnotesize
+\begin{verbatim}
+# once, before csynth/optimize/pipeline:
+source ~/tools/Xilinx/2025.2/Vitis/settings64.sh
+
+python3 -m harpo repair \
+  tasks/vadd_buggy_001 --provider mock,ollama
+python3 -m harpo optimize \
+  tasks/mac8_001 --provider recipe,ollama
+# repair, then optimize:
+python3 -m harpo pipeline \
+  tasks/vadd_buggy_001
+# aggregate runs/ -> SUITE.md + SUITE.csv:
+python3 scripts/run_suite.py
+\end{verbatim}}
+
+The headline ablation compares the recipe arm against the raw-LLM arm on the
+same kernel; each invocation writes its result JSON under
+\texttt{docs/ablations/}:
+
+{\footnotesize
+\begin{verbatim}
+# the headline ablation
+# (each writes docs/ablations/mac8_001_*.json):
+python3 -m harpo optimize \
+  tasks/mac8_001 --provider recipe
+python3 -m harpo optimize \
+  tasks/mac8_001 --provider ollama
+\end{verbatim}}
+
+The offline self-tests require neither Vitis nor the LLM; they validate the
+csim classifier, the recipe provider's emitted C++, and the csynth parser
+against stored artifacts:
+
+{\footnotesize
+\begin{verbatim}
+# offline self-tests (no Vitis, no LLM):
+# csim classification / recipe C++ validity
+# (g++ -fsyntax-only) / csynth XML parsing
+python3 scripts/selftest.py
+python3 scripts/selftest_recipes.py
+python3 scripts/selftest_csynth.py
+\end{verbatim}}
+
+\subsection{Replayable per-run artifacts}
+
+Every run writes replayable JSON under \texttt{runs/<task\_id>/}: for each
+candidate, the \texttt{\{csim,csynth\}\_\{raw,parsed\}.json} files, plus the
+phase log carrying the budget, token counts, and per-candidate scores. Because
+each candidate's raw and parsed synthesis output is committed alongside the code,
+every number in this paper can be re-derived from these logs.
+
+\subsection{Install caveat}
+
+The unified Vitis 2025.2 installer omits the \texttt{bin/vitis\_hls} launcher.
+The loader wrapper must be recreated by hand; otherwise \texttt{vitis\_hls}
+is not on \texttt{PATH} even after sourcing \texttt{settings64.sh}.

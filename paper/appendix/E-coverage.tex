@@ -1,0 +1,193 @@
+\section{Task-Type Coverage and Limitations}\label{app:coverage}
+
+This section honestly maps HARPO's demonstrated capability onto the task
+taxonomy defined by the FPT'26 Track~A (LLM4HLS) call --- a useful external yardstick
+of agent completeness, independent of any competition entry. Coverage claims below
+were checked against the code (\texttt{harpo/}), not memory; numbers and proofs
+trace to the canonical results table. Throughout, status is reported with three
+labels: \textbf{Proven} (\checkmark) --- demonstrated end-to-end in the code with a
+fixture or result; \textbf{Partial} (\(\sim\)) --- a path exists but is unproven; and
+\textbf{Gap} (\(\times\)) --- a genuine gap.
+
+\subsection{Bottom line}
+
+HARPO proves the \emph{complete required agent workflow} on the two most central
+task types --- \emph{optimize a correct-but-unoptimized baseline} and \emph{repair a
+csim failure} --- with the diagnosis/budget architecture already reaching toward the
+others. We claim performance and resource, not power. The probe is deliberately
+capped (no broad design-space exploration). The remaining items are a scoping list
+(Sec.~\ref{app:coverage:future}); several depend on the interface of whatever
+external evaluation harness the agent is pointed at, and are best built against a
+concrete harness rather than a guessed one.
+
+\subsection{Task initial conditions}
+
+The taxonomy spans the task types in Table~\ref{tab:cov-initial}. The table maps
+each task type onto the HARPO mechanism that addresses it and its proven
+status.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Task initial conditions: task type vs.\ HARPO mechanism and status.}
+\label{tab:cov-initial}
+\begin{tabular}{@{}p{0.30\textwidth}p{0.42\textwidth}p{0.22\textwidth}@{}}
+\toprule
+\textbf{Task type} & \textbf{HARPO mechanism} & \textbf{Status} \\
+\midrule
+Functionally correct but \textbf{unoptimized} baseline
+& \texttt{run\_optimize} (5 hand-built + 3 PolyBench kernels)
+& \checkmark~\textbf{Proven} \\
+\addlinespace
+\textbf{Fails compilation}
+& \texttt{parser} $\rightarrow$ \texttt{compile\_error}; \texttt{diagnosis} $\rightarrow$ \texttt{minimal\_compile\_fix}; repair loop drives it
+& \(\sim\)~Partial: path exists; \textbf{no fixture proves it} (repair fixtures are functional bugs, not compile failures) \\
+\addlinespace
+\textbf{Fails synthesis}
+& \texttt{SYNTHESIS\_FAIL} diagnosis class + \texttt{parse\_csynth}, but \texttt{run\_repair} runs the \textbf{csim (gpp) stage only}
+& \(\times\)~\textbf{Gap}: a design that passes csim yet fails csynth is not driven by any repair loop \\
+\addlinespace
+Compiles but \textbf{fails csim}
+& \texttt{run\_repair} (\texttt{vadd\_buggy} / \texttt{offbyone} / \texttt{scale\_wrongop})
+& \checkmark~\textbf{Proven} \\
+\addlinespace
+Compiles but \textbf{fails cosim}
+& cosim is budgeted + stage-gated, but \texttt{runner} marks it ``(later)''
+& \(\times\)~\textbf{Gap}: cosim not implemented \\
+\addlinespace
+Compiles but fails \textbf{hidden functional tests}
+& agent runs the \emph{provided} testbench; hidden tests are evaluator-side
+& \checkmark~Proven (by design --- nothing to build) \\
+\addlinespace
+\textbf{Structural: severe resource inefficiency}
+& \texttt{run\_optimize} + \texttt{RESOURCE\_OVERUSE}
+& \checkmark~Proven \\
+\addlinespace
+\textbf{Structural: deadlock}
+& \texttt{TIMEOUT\_OR\_DEADLOCK} class + csim timeout detection
+& \(\sim\)~Partial: class exists; \textbf{no streaming/dataflow kernel demonstrated} \\
+\addlinespace
+\textbf{Structural: invalid streaming behavior}
+& --- (no \texttt{hls::stream}/dataflow kernel in the task set)
+& \(\times\)~\textbf{Gap} \\
+\addlinespace
+Other HLS compilation problems
+& catch-all via the \texttt{compile\_error} path
+& \(\sim\)~Partial \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Required agent workflow (the 6 steps)}
+
+The Track~A call specifies a six-step agent workflow. Table~\ref{tab:cov-workflow}
+shows that HARPO covers all six. This row block is HARPO's strongest alignment ---
+it was built around exactly this loop.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Required agent workflow: all six steps fully covered.}
+\label{tab:cov-workflow}
+\begin{tabular}{@{}p{0.34\textwidth}p{0.50\textwidth}p{0.08\textwidth}@{}}
+\toprule
+\textbf{Required step} & \textbf{HARPO} & \textbf{Status} \\
+\midrule
+1. Interpret the task spec + initial code
+& \texttt{task.py} $\rightarrow$ \texttt{TaskContext} (part/clock/sources/policy/budget injected)
+& \checkmark \\
+\addlinespace
+2. Generate/modify HLS C/C++ incl.\ pragmas
+& \texttt{recipes.py} (deterministic) + \texttt{patch\_engine.py} (LLM)
+& \checkmark \\
+\addlinespace
+3. Invoke tool feedback interfaces
+& \texttt{runner.py} (gpp csim, vitis\_hls csynth)
+& \checkmark \\
+\addlinespace
+4. Parse logs/reports for diagnosis
+& \texttt{parser.py} + \texttt{diagnosis.py}
+& \checkmark \\
+\addlinespace
+5. Correctness before PPA
+& structural invariant: every candidate re-runs csim \emph{before} its csynth metrics are read; correctness tier dominates the score
+& \checkmark \\
+\addlinespace
+6. Terminate within budget
+& \texttt{budget.py} (\texttt{policy\_allows} checks \texttt{can()} before every call; reserve held for final verify)
+& \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Provided task artifacts}
+
+Table~\ref{tab:cov-artifacts} maps the artifacts the agent must consume against
+HARPO's handling of each.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{Provided task artifacts the agent must consume.}
+\label{tab:cov-artifacts}
+\begin{tabular}{@{}p{0.32\textwidth}p{0.40\textwidth}p{0.22\textwidth}@{}}
+\toprule
+\textbf{Artifact} & \textbf{HARPO} & \textbf{Status} \\
+\midrule
+Source files (baseline C/C++)
+& injected via \texttt{TaskContext}
+& \checkmark~Proven \\
+\addlinespace
+Testbench + \textbf{build scripts (e.g.\ Makefile)}
+& HARPO uses its \textbf{own} runner/tcl, not a provided Makefile
+& \(\sim\)~Partial: \textbf{adapter likely needed} to the evaluator's build/run interface \\
+\addlinespace
+Spec: interface contract, data types
+& \texttt{spec.json} carries interface/types
+& \checkmark~Proven \\
+\addlinespace
+Spec: \textbf{numerical tolerance}
+& csim compare is exact today
+& \(\sim\)~Partial: tolerance-aware compare may be needed \\
+\addlinespace
+Spec: design constraints
+& spec/constraints JSON
+& \checkmark~Proven \\
+\addlinespace
+Target constraints (part/clock/optional resource limits)
+& injected; \texttt{RESOURCE\_OVERUSE} handles limits
+& \checkmark~Proven \\
+\addlinespace
+\textbf{Budget config} --- max csim/cosim/synth \textbf{OR a unified credit budget}
+& \texttt{BudgetManager} is \textbf{per-tool only} (the \texttt{mode} key exists but \texttt{can()} never branches on it)
+& \(\times\)~\textbf{Gap}: unified-credit mode not implemented \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Future work}\label{app:coverage:future}
+
+HARPO calls Vitis directly through its own \texttt{runner}; integrating with an
+externally provided evaluation harness (one that supplies its own build scripts and
+csim/cosim/synth entry points) would require an adapter, which is best written
+against a concrete harness interface. In rough priority order:
+
+\begin{enumerate}
+  \item \textbf{Eval-interface adapter} --- wrap \texttt{runner} to call an external
+    harness's csim/cosim/synth interfaces and consume its provided Makefile/build
+    scripts.
+  \item \textbf{Unified-credit budget mode} --- branch \texttt{BudgetManager.can()} on
+    \texttt{mode} so a single credit pool is honored, if that's what the evaluator meters.
+  \item \textbf{Synthesis-failure repair} --- drive \texttt{run\_repair} (or a unified
+    repair stage) from \texttt{SYNTHESIS\_FAIL}/\texttt{TIMING\_FAIL}, not csim only.
+  \item \textbf{cosim stage} --- implement the cosim backend the budget already reserves for.
+  \item \textbf{Streaming/dataflow kernels} --- add an \texttt{hls::stream} task to
+    exercise deadlock/invalid-streaming repair (\texttt{TIMEOUT\_OR\_DEADLOCK}).
+  \item \textbf{Numerical-tolerance compare} --- honor a spec-declared tolerance in csim
+    checking.
+  \item \textbf{Compile-failure fixture} --- a fixture that proves the
+    \texttt{compile\_error} $\rightarrow$ \texttt{minimal\_compile\_fix} path end-to-end.
+\end{enumerate}
+
+None of these change the paper's claims, which are scoped to what is proven; this
+section exists to state that coverage honestly.

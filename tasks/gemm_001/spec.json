@@ -1,0 +1,51 @@
+{
+  "task_id": "gemm_001",
+  "description": "Correct-but-unoptimized PolyBench-style fixed-size NxN integer GEMM (C = beta*C + alpha*(A*B), N=16). Optimization-loop demo: csim already PASSES; the inner dot-product k-loop runs sequentially, leaving real PPA headroom. Pipelining the inner loop (#pragma HLS PIPELINE II=1) and cyclically partitioning B parallelizes the multiply-accumulate -> large latency drop without changing results. Demonstrator for the auto-derive throughput-target probe: NO throughput_target is hand-set.",
+  "expected": "csim_pass=true; optimize lowers latency while keeping csim_pass=true",
+  "top_function": "gemm",
+  "language": "cpp",
+  "entry_files": [
+    "src/gemm.cpp",
+    "src/gemm.h"
+  ],
+  "testbench_files": [
+    "tb/tb_gemm.cpp"
+  ],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      {
+        "name": "A",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "B",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "C",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "output"
+      }
+    ]
+  },
+  "numerics": {
+    "comparison": "exact",
+    "atol": 0,
+    "rtol": 0
+  },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": [
+      "src/**",
+      "directives/**"
+    ]
+  },
+  "objective": "satisfice_then_area"
+}

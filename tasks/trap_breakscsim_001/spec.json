@@ -1,0 +1,22 @@
+{
+  "task_id": "trap_breakscsim_001",
+  "description": "CORRECTNESS-TRAP fixture. Correct-but-unoptimized windowed sum: csim already PASSES. The supplied mock_patch is a genuine C++ semantic change (drops the last term of every window) that looks like a speed-up but produces WRONG output under g++ csim. The optimize loop MUST re-verify csim, detect the regression, discard the broken child, and keep the correct baseline. This is the safety-invariant credibility test.",
+  "expected": "csim_pass=true at baseline; a throughput-improving but correctness-breaking patch is REJECTED and the baseline is preserved (improved=false)",
+  "top_function": "wsum",
+  "language": "cpp",
+  "entry_files": ["src/wsum.cpp", "src/wsum.h"],
+  "testbench_files": ["tb/tb_wsum.cpp"],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      { "name": "in",  "kind": "ap_memory", "dtype": "int", "direction": "input" },
+      { "name": "out", "kind": "ap_memory", "dtype": "int", "direction": "output" }
+    ]
+  },
+  "numerics": { "comparison": "exact", "atol": 0, "rtol": 0 },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": ["src/**", "directives/**"]
+  }
+}

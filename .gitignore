@@ -1,0 +1,31 @@
+# Vitis HLS / Vivado generated project dirs and logs
+**/vadd_proj/
+**/*_proj/
+*.log
+*.jou
+*.str
+.Xil/
+.autopilot/
+
+# HARPO run artifacts (regenerated; keep the dir, not the contents)
+runs/*
+!runs/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# LaTeX build artifacts (paper compiles locally via the texlive Docker image)
+paper/paper.pdf
+paper/*.aux
+paper/*.out
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.bbl
+paper/*.blg
+
+# internal working docs - never publish
+docs/HANDOVER.md
+docs/CHECKPOINT.md
+docs/REGISTRATION.md

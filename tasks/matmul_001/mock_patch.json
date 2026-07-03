@@ -1,0 +1,4 @@
+[
+  ["matmul.cpp", "void matmul(const int A[N * N], const int B[N * N], int C[N * N]) {\n", "void matmul(const int A[N * N], const int B[N * N], int C[N * N]) {\n#pragma HLS ARRAY_PARTITION variable=B cyclic factor=N dim=1\n"],
+  ["matmul.cpp", "      for (int k = 0; k < N; k++) {\n", "      for (int k = 0; k < N; k++) {\n#pragma HLS PIPELINE II=1\n"]
+]

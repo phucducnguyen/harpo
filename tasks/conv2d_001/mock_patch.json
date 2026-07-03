@@ -1,0 +1,4 @@
+[
+  ["conv2d.cpp", "void conv2d(const int in[IH * IW], const int ker[K * K], int out[OH * OW]) {\n", "void conv2d(const int in[IH * IW], const int ker[K * K], int out[OH * OW]) {\n#pragma HLS ARRAY_PARTITION variable=ker complete dim=1\n"],
+  ["conv2d.cpp", "        for (int kx = 0; kx < K; kx++) {\n", "        for (int kx = 0; kx < K; kx++) {\n#pragma HLS PIPELINE II=1\n"]
+]

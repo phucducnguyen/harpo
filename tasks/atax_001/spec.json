@@ -1,0 +1,51 @@
+{
+  "task_id": "atax_001",
+  "description": "Correct-but-unoptimized PolyBench-style fixed-size integer ATAX (y = A^T*(A*x), M=N=16). Optimization-loop demo: csim already PASSES; the inner multiply-accumulate loops run sequentially, leaving real PPA headroom. Pipelining the inner loops (#pragma HLS PIPELINE II=1) and cyclically partitioning A/x parallelizes the multiply-accumulate -> large latency drop without changing results. Demonstrator for the auto-derive throughput-target probe: NO throughput_target is hand-set.",
+  "expected": "csim_pass=true; optimize lowers latency while keeping csim_pass=true",
+  "top_function": "atax",
+  "language": "cpp",
+  "entry_files": [
+    "src/atax.cpp",
+    "src/atax.h"
+  ],
+  "testbench_files": [
+    "tb/tb_atax.cpp"
+  ],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      {
+        "name": "A",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "x",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "y",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "output"
+      }
+    ]
+  },
+  "numerics": {
+    "comparison": "exact",
+    "atol": 0,
+    "rtol": 0
+  },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": [
+      "src/**",
+      "directives/**"
+    ]
+  },
+  "objective": "satisfice_then_area"
+}

@@ -1,0 +1,63 @@
+{
+  "task_id": "bicg_001",
+  "description": "Correct-but-unoptimized PolyBench-style fixed-size integer bicg (s = A^T*r and q = A*p computed in one fused pass over the NxM matrix A, N=M=16). Optimization-loop demo: csim already PASSES; the inner j-loop multiply-accumulate runs sequentially, leaving real PPA headroom. Pipelining the inner loop (#pragma HLS PIPELINE II=1) and partitioning A/p parallelizes the accumulates -> large latency drop without changing results. Demonstrator for the auto-derive throughput-target probe: NO throughput_target is hand-set.",
+  "expected": "csim_pass=true; optimize lowers latency while keeping csim_pass=true",
+  "top_function": "bicg",
+  "language": "cpp",
+  "entry_files": [
+    "src/bicg.cpp",
+    "src/bicg.h"
+  ],
+  "testbench_files": [
+    "tb/tb_bicg.cpp"
+  ],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      {
+        "name": "A",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "p",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "r",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "input"
+      },
+      {
+        "name": "s",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "output"
+      },
+      {
+        "name": "q",
+        "kind": "ap_memory",
+        "dtype": "int",
+        "direction": "output"
+      }
+    ]
+  },
+  "numerics": {
+    "comparison": "exact",
+    "atol": 0,
+    "rtol": 0
+  },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": [
+      "src/**",
+      "directives/**"
+    ]
+  },
+  "objective": "satisfice_then_area"
+}

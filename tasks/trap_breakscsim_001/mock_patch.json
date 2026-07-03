@@ -1,0 +1,3 @@
+[
+  ["wsum.cpp", "    for (int k = 0; k < WINDOW; k++) {\n", "    for (int k = 0; k < WINDOW - 1; k++) {\n"]
+]

@@ -1,0 +1,24 @@
+{
+  "task_id": "vadd_001",
+  "description": "Reference-correct vector add. Gate-0 toolchain proof: must csim PASS and csynth PASS.",
+  "expected": "csim_pass=true, csynth_pass=true",
+  "top_function": "vadd",
+  "language": "cpp",
+  "entry_files": ["src/vadd.cpp", "src/vadd.h"],
+  "testbench_files": ["tb/tb_vadd.cpp"],
+  "interface_contract": {
+    "control": "s_axilite",
+    "ports": [
+      { "name": "a", "kind": "m_axi", "dtype": "int", "direction": "input" },
+      { "name": "b", "kind": "m_axi", "dtype": "int", "direction": "input" },
+      { "name": "c", "kind": "m_axi", "dtype": "int", "direction": "output" },
+      { "name": "n", "kind": "s_axilite", "dtype": "int", "direction": "input" }
+    ]
+  },
+  "numerics": { "comparison": "exact", "atol": 0, "rtol": 0 },
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": ["src/**", "directives/**"]
+  }
+}

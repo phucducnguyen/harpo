@@ -1,0 +1,19 @@
+{
+  "toolchain": {
+    "hls_tool": "vitis_hls",
+    "version": "Vitis HLS 2026.x on WINDOWS (free Basic tier). Dev host = Windows PC (Ryzen 7 2700X / 32GB / GTX1080).",
+    "license_note": "Since 2026.1 (announced 2026-05-25) the free Basic tier is WINDOWS-ONLY; Linux now requires a paid Core tier (~$1200-1800/yr). xc7z020 is an entry-level part and is expected in the Basic tier — VERIFY the Basic-tier device list at install. If ever switching to Linux, pin <=2025.2 (still free on Linux). Match the competition's mandated version when tasks release.",
+    "competition_version": "TBD — set when FPT'26 tasks drop; if they mandate 2026.1+, Windows free Basic is the only no-cost path."
+  },
+  "target": {
+    "board": "PYNQ-Z2 (dev only; NOT assumed to be the evaluator target)",
+    "fpga_part": "xc7z020clg400-1",
+    "clock_period_ns": 10.0
+  },
+  "resource_limits": {
+    "lut_pct_max": 80,
+    "ff_pct_max": 80,
+    "bram_pct_max": 80,
+    "dsp_pct_max": 80
+  }
+}

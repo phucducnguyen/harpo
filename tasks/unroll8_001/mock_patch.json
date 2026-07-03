@@ -1,0 +1,4 @@
+[
+  ["unroll8.cpp", "void unroll8(const int in[IN_SIZE], int out[OUT_SIZE]) {\n", "void unroll8(const int in[IN_SIZE], int out[OUT_SIZE]) {\n#pragma HLS ARRAY_PARTITION variable=in cyclic factor=16 dim=1\n"],
+  ["unroll8.cpp", "    for (int k = 0; k < K; k++) {\n", "    for (int k = 0; k < K; k++) {\n#pragma HLS UNROLL\n"]
+]
