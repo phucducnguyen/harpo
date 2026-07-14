@@ -112,6 +112,7 @@ def run_repair(task: TaskContext, providers: list, *, backend: str = "gpp",
                 _event(events,
                        f"proposal from {type(prov).__name__}: {proposal.edit_plan}",
                        event="propose", provider=type(prov).__name__,
+                       model=getattr(prov, "model_id", None),
                        target=proposal.target_file, tokens=usage or None)
                 break
         if not proposal:
@@ -348,6 +349,7 @@ def run_optimize(task: TaskContext, providers: list, *, csim_backend: str = "gpp
                 _event(events,
                        f"opt proposal from {type(prov).__name__}: {proposal.edit_plan}",
                        event="propose", provider=type(prov).__name__,
+                       model=getattr(prov, "model_id", None),
                        target=proposal.target_file, tokens=usage or None)
                 break
         if not proposal:

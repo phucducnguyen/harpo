@@ -1,0 +1,18 @@
+{
+  "toolchain": {
+    "hls_tool": "vitis_hls",
+    "version": "Vitis HLS 2025.2 on atlas (Linux, free pre-2026.1) — same verified setup as the rest of the suite (see GATE0.md).",
+    "license_note": "Since 2026.1 the free Basic tier is Windows-only; pre-2026.1 (<=2025.2) is free on Linux. xc7z020 is free-tier covered."
+  },
+  "target": {
+    "board": "PYNQ-Z2 (dev target; the 2024 report swept Artix/Kintex/Virtex — family sweep is a follow-up experiment, see README.md)",
+    "fpga_part": "xc7z020clg400-1",
+    "clock_period_ns": 10.0
+  },
+  "resource_limits": {
+    "lut_pct_max": 80,
+    "ff_pct_max": 80,
+    "bram_pct_max": 80,
+    "dsp_pct_max": 80
+  }
+}

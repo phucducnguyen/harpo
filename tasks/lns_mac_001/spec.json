@@ -1,0 +1,38 @@
+{
+  "task_id": "lns_mac_001",
+  "description": "Real-artifact case study: the LNS (Logarithmic Number System) log8 MAC from the author's 2024 MS project (SJSU EE297B), snapshot of the 2026 fixed datapath. csim already PASSES against a double-precision golden model; the optimize loop should regenerate honest post-fix PPA and find pragma headroom on mac_nxn_array without breaking the datapath.",
+  "expected": "csim_pass=true on the base design; optimize improves the satisfice_then_area score while csim stays true",
+  "top_function": "mac_nxn_array",
+  "language": "cpp",
+  "entry_files": [
+    "src/mac.cpp",
+    "src/mac.h",
+    "src/add_unit.cpp",
+    "src/add_unit.h",
+    "src/mul_unit.cpp",
+    "src/mul_unit.h",
+    "src/LNS_datatype.h"
+  ],
+  "testbench_files": ["tb/mac_tb.cpp"],
+  "include_dirs": ["../../.deps/hls_types/include"],
+  "interface_contract": {
+    "control": "ap_ctrl_none",
+    "ports": [
+      { "name": "array_input_a", "kind": "m_axi", "bundle": "gmem", "dtype": "LNS<B,Q,R,Gamma>[8][8]", "direction": "input" },
+      { "name": "array_input_b", "kind": "m_axi", "bundle": "gmem", "dtype": "LNS<B,Q,R,Gamma>[8][8]", "direction": "input" },
+      { "name": "result",        "kind": "m_axi", "bundle": "gmem", "dtype": "LNS<B,Q,R,Gamma>[8][8]", "direction": "output" }
+    ]
+  },
+  "numerics": {
+    "comparison": "tolerance",
+    "rtol": 0.05,
+    "atol": 0.00390625,
+    "note": "Enforced by the testbench itself: |dut - golden| <= 5%|golden| + 1% sum|products| + 2^-8, golden = double-precision MAC of the QUANTIZED (LNS-grid) inputs, so datapath error only. Deterministic seeds; 10k randomized trials + directed edge cases (exact zero, sub-unity, cancellation, underflow flush, overflow saturation)."
+  },
+  "objective": "satisfice_then_area",
+  "policy": {
+    "allow_testbench_edits": false,
+    "allow_top_signature_change": false,
+    "allowed_edit_globs": ["src/**", "directives/**"]
+  }
+}

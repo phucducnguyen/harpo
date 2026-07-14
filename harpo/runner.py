@@ -73,10 +73,11 @@ def run_csim_gpp(task: TaskContext, out_dir: Path) -> dict:
         str(p) for p in (task.src_files + task.tb_files)
         if p.suffix.lower() in SRC_EXTS
     ]
+    extra_incs = [f"-I{d}" for d in getattr(task, "include_dirs", None) or []]
     cmd = [
         cxx, "-O0", "-std=c++14",
         *sources,
-        f"-I{task.src_dir}", f"-I{task.tb_dir}",
+        f"-I{task.src_dir}", f"-I{task.tb_dir}", *extra_incs,
         "-o", str(binary),
     ]
     comp = subprocess.run(cmd, capture_output=True, text=True)
@@ -122,6 +123,9 @@ def _gen_tcl(task: TaskContext, proj_name: str) -> str:
     # Put the (candidate) source dir AND tb dir on the compiler include path so
     # `#include "kernel.h"` resolves to the candidate's edited header, not a
     # stray copy — mirrors the gpp backend's -I flags and keeps isolation honest.
+    # Task include_dirs are deliberately NOT passed here: they vendor headers
+    # the real tool ships natively (ap_int.h & friends), and the open-source
+    # AP-types headers hard-#error under csynth ("does not support synthesis").
     cflags = f'-I{task.src_dir} -I{task.tb_dir}'
     add_src = "\n".join(f'add_files {{{p}}} -cflags "{cflags}"' for p in task.src_files)
     add_tb = "\n".join(f'add_files -tb {{{p}}} -cflags "{cflags}"' for p in task.tb_files)

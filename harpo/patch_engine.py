@@ -67,6 +67,7 @@ class MockProvider:
     def __init__(self, edits: list[tuple[str, str, str]]):
         self.edits = list(edits)
         self.last_usage: dict | None = None  # mock spends no tokens
+        self.model_id = "mock"  # provenance tag recorded in run evidence
 
     def propose(
         self,
@@ -191,6 +192,11 @@ class OllamaProvider:
             "HARPO_OLLAMA_MODEL", "qwen3.6:35b-a3b-q4_K_M")
         self.timeout = timeout
         self.last_usage: dict | None = None
+        # Provenance tag recorded in run evidence so committed artifacts prove
+        # WHICH model produced each patch (the paper's reproducibility story).
+        # Model tag ONLY — never the endpoint URL: run JSONs are published and
+        # must stay free of LAN addresses/hostnames.
+        self.model_id = self.model
 
     @staticmethod
     def _resource_ceiling(task) -> str:

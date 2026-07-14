@@ -11,6 +11,9 @@
 runs/*
 !runs/.gitkeep
 
+# Vendored third-party headers (fetched, never authored — see task READMEs)
+.deps/
+
 # Python
 __pycache__/
 *.pyc

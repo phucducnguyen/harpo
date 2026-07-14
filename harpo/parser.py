@@ -188,13 +188,19 @@ def _metrics_from_xml(xml_text: str) -> dict:
             if m[avail_k] is None:
                 m[avail_k] = _num(_txt(avail, dict(raw_keys)[raw_k]))
 
-    # 3) Compute util% from count/avail wherever the report didn't supply a
-    #    numeric UTIL_ (covers per-module reports and the "~0" token).
+    # 3) Compute util% from count/avail whenever BOTH are known — arithmetic
+    #    over the merged counts beats any single reported UTIL_ token. In a
+    #    hierarchical overall report there is one <Resources> block per module,
+    #    and first-numeric-wins merging can pair the TOP's raw count with a
+    #    SUBMODULE's UTIL_ (seen on lns_mac_001: lut=89773 avail=53200 with a
+    #    reported util_lut of 6 from a child block; the true top UTIL_LUT was
+    #    168 — which silently suppressed the resource-overuse violation). A
+    #    reported UTIL_ survives only when util% cannot be computed (missing
+    #    count or avail), which also still covers the "~0" token case.
     for raw_k, (avail_k, util_k, _at, _ut) in util_map.items():
-        if m[util_k] is None:
-            cnt, av = m[raw_k], m[avail_k]
-            if cnt is not None and av is not None and av > 0:
-                m[util_k] = round(100.0 * cnt / av, 1)
+        cnt, av = m[raw_k], m[avail_k]
+        if cnt is not None and av is not None and av > 0:
+            m[util_k] = round(100.0 * cnt / av, 1)
     return m
 
 

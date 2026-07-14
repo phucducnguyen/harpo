@@ -320,6 +320,7 @@ class RecipeProvider:
     def __init__(self, recipes: tuple[Recipe, ...] = RECIPES):
         self.recipes = tuple(sorted(recipes, key=lambda r: r.priority))
         self.last_usage: dict | None = None
+        self.model_id = "recipe"  # provenance tag: deterministic, no LLM
         # Lazy worklist of (recipe, array_var|None) tuples, built on first use.
         self._worklist: list[tuple[Recipe, str | None]] | None = None
         self._cursor = 0

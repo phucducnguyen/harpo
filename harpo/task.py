@@ -29,6 +29,7 @@ class TaskContext:
     budget: dict
     objective: str = "satisfice_then_area"  # enum: speed_first | area_first | adp | satisfice_then_area | pareto_report
     throughput_target: float | None = None  # interval_max ceiling for satisfice_then_area; None = no explicit target
+    include_dirs: list[Path] = field(default_factory=list)  # extra -I dirs for HOST csim only (vendored ap_int.h etc.); vitis uses its own shipped headers
     raw: dict = field(default_factory=dict)
 
 
@@ -77,6 +78,16 @@ def load_task(task_dir: str | Path) -> TaskContext:
     if objective not in VALID:
         objective = "satisfice_then_area"
 
+    # Optional extra include dirs (headers the kernel needs but the agent never
+    # edits — e.g. a vendored ap_int.h). HOST-CSIM ONLY: the gpp backend adds
+    # them so real HLS code compiles without Vitis; the vitis backend must NOT
+    # (the open-source AP-types headers #error under csynth — the tool ships
+    # its own). Task-relative paths resolve against the task dir; absolute
+    # paths pass through. Tolerant: absent -> []; a missing dir is NOT an error
+    # here (it surfaces as a compile failure with a clear -I path in the log,
+    # which is more actionable than a load-time raise).
+    include_dirs = [(task_dir / d).resolve() for d in spec.get("include_dirs", [])]
+
     # Optional explicit interval_max ceiling for satisfice_then_area. Tolerant:
     # non-numeric or absent -> None (no explicit target).
     throughput_target = None
@@ -102,5 +113,6 @@ def load_task(task_dir: str | Path) -> TaskContext:
         budget=budget,
         objective=objective,
         throughput_target=throughput_target,
+        include_dirs=include_dirs,
         raw={"spec": spec, "constraints": constraints, "budget": budget},
     )
