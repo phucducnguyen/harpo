@@ -42,8 +42,8 @@ as later repaired in a 2026 review pass.
 - **Top = `mac_nxn_array`** — matches upstream `mac/hls_config.cfg`, i.e. the
   design as the project itself synthesizes it. The testbench exercises the
   `mac_array` datapath it wraps.
-- **Part = xc7z020clg400-1 @ 10 ns** — HARPO's verified free-tier toolchain on
-  atlas. The 2024 report swept Artix/Kintex/Virtex; reproducing that sweep is
+- **Part = xc7z020clg400-1 @ 10 ns** — HARPO's verified free-tier toolchain.
+  The 2024 report swept Artix/Kintex/Virtex; reproducing that sweep is
   a planned follow-up (clone this task, change `constraints.json` per family).
   Upstream's cfg targets xczu9eg; PPA numbers here are NOT comparable to the
   report's tables until the family sweep runs.

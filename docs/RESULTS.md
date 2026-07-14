@@ -173,7 +173,7 @@ the best of both.
 ---
 
 Every number below is pulled from the committed JSON logs under `runs/`, produced
-on **atlas** with **Vitis HLS 2025.2** (csim via `gpp`, csynth via `vitis_hls`),
+with **Vitis HLS 2025.2** (csim via `gpp`, csynth via `vitis_hls`),
 part `xc7z020clg400-1`, clock 10.0 ns. Each result lists the **exact command** that
 regenerates it. The three pillars of the Track-A evidence story are: the **closed-loop
 workflow**, the **token account by phase**, and **PPA before/after**.

@@ -1,7 +1,7 @@
 {
   "toolchain": {
     "hls_tool": "vitis_hls",
-    "version": "Vitis HLS 2025.2 on atlas (Linux, free pre-2026.1) — same verified setup as the rest of the suite (see GATE0.md).",
+    "version": "Vitis HLS 2025.2 (Linux, free pre-2026.1) — same verified setup as the rest of the suite (see GATE0.md).",
     "license_note": "Since 2026.1 the free Basic tier is Windows-only; pre-2026.1 (<=2025.2) is free on Linux. xc7z020 is free-tier covered."
   },
   "target": {

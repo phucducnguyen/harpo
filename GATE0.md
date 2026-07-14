@@ -1,11 +1,11 @@
-# Gate 0 — prove the toolchain — ✅ PASSED (2026-06-14, atlas)
+# Gate 0 — prove the toolchain — ✅ PASSED (2026-06-14)
 
-Both gates pass on **atlas** with **Vitis HLS 2025.2** (free on Linux, pre-2026.1).
+Both gates pass with **Vitis HLS 2025.2** (free on Linux, pre-2026.1).
 
 - **Gate 0a — csim (functional): just a C++ compiler.** Vitis HLS csim is
   "compile the C++ + run the testbench", and g++ ignores `#pragma HLS`, so
   `python3 -m harpo run <task> --stage csim` reproduces csim pass/fail with
-  **no Vitis** (g++ 13.3.0 on atlas). ✅
+  **no Vitis** (g++ 13.3.0). ✅
 - **Gate 0b — csynth / PPA: real Vitis HLS 2025.2.** Full flow runs end-to-end;
   `python3 -m harpo run <task> --stage csynth --backend vitis_hls` produces
   parsed latency / II / resources. ✅
@@ -49,7 +49,7 @@ then `chmod +x` it. Verify: `vitis_hls -version`.
 
 Since **Vitis 2026.1 (2026-05-25), the free "Basic" tier is WINDOWS-ONLY**;
 Linux 2026.1+ needs a paid "Core" tier (~$1,200-1,800/yr). **Pre-2026.1
-(≤2025.2) is still free on Linux** — which is why we run 2025.2 on atlas.
+(≤2025.2) is still free on Linux** — which is why we run 2025.2.
 **Never install 2026.1+ on Linux.** xc7z020 is entry-level / free-tier covered.
 
 ## Manual repro (no Python)

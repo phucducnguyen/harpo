@@ -25,7 +25,7 @@ re-run through csim *before* its synthesis metrics are even read, and kept only 
 *strictly* improves a lexicographic, correctness-dominated score); and a deterministic
 **precise-pragma recipe library** placed *ahead of* the LLM. The agent runs entirely on
 a **local, free** qwen model (Ollama over HTTP) at **$0** LLM cost. On real Vitis HLS
-2025.2 (atlas, part `xc7z020clg400-1`, 10 ns) the demonstrated suite — one LLM repair
+2025.2 (part `xc7z020clg400-1`, 10 ns) the demonstrated suite — one LLM repair
 plus four real-Vitis PPA optimizations — repaired a planted bug in 2 steps / 1 LLM call
 / 2400 tokens, drove kernels to **II=1** (up to ~7.8× latency on `unroll8_001`), and
 generalized to a 2-D matmul. Our distinctive finding is that a raw LLM
@@ -171,7 +171,7 @@ objective `satisfice_then_area` rather than speed-first.
 ## 3. Results
 
 All numbers below are from the committed JSON logs under `runs/` and `docs/ablations/`,
-produced on **atlas** with **Vitis HLS 2025.2** (csim via `gpp`, csynth via
+produced with **Vitis HLS 2025.2** (csim via `gpp`, csynth via
 `vitis_hls`), part `xc7z020clg400-1`, clock 10.0 ns (GATE0.md: Gate-0a and Gate-0b
 PASSED).
 

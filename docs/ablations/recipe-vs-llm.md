@@ -19,7 +19,7 @@ precise deterministic pragmas first, the LLM only for the tail the catalogue
 can't reach.
 
 All numbers below are pulled directly from the two committed JSON logs in this
-directory, produced on **atlas** with **Vitis HLS 2025.2**, part
+directory, produced with **Vitis HLS 2025.2**, part
 `xc7z020-clg400-1`, 10.0 ns clock. Reproduce with:
 
 ```bash

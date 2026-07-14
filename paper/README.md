@@ -1,6 +1,6 @@
 # HARPO paper — independent preprint
 
-IEEE-conference-style preprint (TechRxiv first; arXiv cs.AR if endorsed). Converted
+IEEE-conference-style preprint (Zenodo DOI; arXiv cs.AR if endorsed). Converted
 2026-07-02 from the abandoned FPT'26 Track-A 2-page submission: the former appendices
 are now the body sections, the paper is de-anonymized (author: Phuc (Patrick) Duc
 Nguyen, Independent Researcher, ORCID 0009-0000-6536-214X), and a Related Work
