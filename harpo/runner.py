@@ -73,7 +73,7 @@ def run_csim_gpp(task: TaskContext, out_dir: Path) -> dict:
         str(p) for p in (task.src_files + task.tb_files)
         if p.suffix.lower() in SRC_EXTS
     ]
-    extra_incs = [f"-I{d}" for d in getattr(task, "include_dirs", None) or []]
+    extra_incs = [f"-I{d}" for d in task.include_dirs]
     cmd = [
         cxx, "-O0", "-std=c++14",
         *sources,

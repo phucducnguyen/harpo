@@ -111,11 +111,9 @@ def main() -> int:
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         futures = [pool.submit(run_one, base, *j) for j in jobs]
-        results = [f.result() for f in futures]  # preserves job order
-
-    # Deterministic output order regardless of completion order.
-    order = {(v, p): i for i, (v, _s, _f, _fam, p) in enumerate(jobs)}
-    results.sort(key=lambda r: order[(r["variant"], r["requested_part"])])
+        # Futures are created and awaited in jobs order, so results are
+        # already deterministic regardless of completion order.
+        results = [f.result() for f in futures]
 
     summary = {
         "task": "lns_mac_001",

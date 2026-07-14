@@ -39,7 +39,12 @@ class PatchProvider(Protocol):
     "vadd.h") to that file's full text. `diagnosis` is the current failure
     diagnosis; `history` is the per-step diagnosis-class history this run.
     Return a PatchProposal, or None when the provider can't help.
+
+    `model_id` is the provenance tag recorded in run evidence for every
+    propose event (a model name only — never an endpoint URL).
     """
+
+    model_id: str
 
     def propose(
         self,
