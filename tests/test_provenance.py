@@ -67,8 +67,8 @@ class TestProposeEventRecordsModel(unittest.TestCase):
         store.REPO_ROOT = self._orig_repo_root
 
     def test_repair_propose_event_has_model(self):
-        if not any(shutil.which(c) for c in
-                   (os.environ.get("CXX") or "", "g++", "clang++", "c++")):
+        from harpo.runner import _find_cxx
+        if _find_cxx() is None:
             self.skipTest("no C++ compiler available; gpp csim cannot run")
 
         task = load_task(TASK_DIR)

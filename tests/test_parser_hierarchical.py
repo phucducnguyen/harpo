@@ -114,5 +114,22 @@ class TestHierarchicalUtilPairing(unittest.TestCase):
         self.assertIsNone(self.m["util_uram"])
 
 
+class TestBoundaryOveruseNotHiddenByRounding(unittest.TestCase):
+    """count=53226 / avail=53200 is a true 100.049% overuse, but util%
+    rounds to 100.0 — the violation must fire from the exact integer
+    comparison, not the rounded percentage."""
+
+    def setUp(self):
+        self.parsed = parse_csynth(_raw(HIERARCHICAL_XML.replace("89773", "53226")))
+
+    def test_rounded_util_is_exactly_100(self):
+        self.assertEqual(self.parsed["metrics"]["util_lut"], 100.0)
+
+    def test_overuse_still_detected_from_counts(self):
+        self.assertTrue(any(v.startswith("resource: LUT") for v in
+                            self.parsed["violations"]))
+        self.assertEqual(self.parsed["status"], "resource_overuse")
+
+
 if __name__ == "__main__":
     unittest.main()

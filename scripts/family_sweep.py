@@ -11,14 +11,12 @@ from committed artifacts:
     from the first LLM run (docs/case-study/lns_mac_001_ollama_run1_winner.mac.cpp)
 
 Requires vitis_hls on PATH (source the Vitis settings64.sh first).
-Parts default to: the case-study anchor (xc7z020), the upstream repo's own
-MAC target (xczu9eg), and a Virtex-7 representative. Parts whose device
-family isn't installed FAIL LOUDLY into the summary — no silent skips.
-This Vitis 2025.2 install carries ONLY the Zynq families (`list_part` ->
-zynq/zynquplus/RFSoC): the Virtex-7 attempt is kept in the sweep precisely
-so the summary records "Part not installed" as evidence. The 2024 report's
-Artix/Kintex/Virtex sweep therefore needs device support added to the
-install first — noted in docs/case-study/README.md.
+Parts default to the five case-study parts: the anchor (xc7z020), the
+upstream repo's own MAC target (xczu9eg), and the 2024 report's three
+families — Artix-7, Kintex-7, Virtex-7 (7-series device support installed
+2026-07-14). Parts whose device family isn't installed FAIL LOUDLY into the
+summary — no silent skips: a failing job records an error row instead of
+crashing the sweep or discarding the other jobs' results.
 
 Run:  python3 scripts/family_sweep.py
 """
@@ -81,8 +79,15 @@ def run_one(base, variant: str, src_dir: Path, src_files: list[Path],
     view = dataclasses.replace(
         base, fpga_part=part, src_dir=src_dir, src_files=src_files)
     print(f"[sweep] {variant} on {part} ...", flush=True)
-    raw = run_stage(view, "csynth", out_dir, backend="vitis_hls")
-    parsed = parse_csynth(raw)
+    try:
+        raw = run_stage(view, "csynth", out_dir, backend="vitis_hls")
+        parsed = parse_csynth(raw)
+    except Exception as e:  # one bad job must not discard the other results
+        print(f"[sweep] {variant} on {part} -> ERROR {e}", flush=True)
+        return {"variant": variant, "family": family, "requested_part": part,
+                "status": "error", "pass": False, "violations": [],
+                "errors": [f"{type(e).__name__}: {e}"],
+                "metrics": {k: None for k in KEEP}}
     row = {
         "variant": variant,
         "family": family,
@@ -123,8 +128,9 @@ def main() -> int:
             "baseline": "tasks/lns_mac_001/src (archived design, top-level PIPELINE)",
             "fixed": "mac.cpp from docs/case-study/lns_mac_001_ollama_run1_winner.mac.cpp",
         },
-        "note": ("Artix-7/Kintex-7 absent: device families not installed in "
-                 "this Vitis 2025.2 setup, NOT a design limitation."),
+        "note": ("All five parts synthesized with Vitis HLS 2025.2 (7-series "
+                 "device support installed 2026-07-14). A failing part records "
+                 "its status and errors in its own row, never skipped."),
         "results": results,
     }
     OUT_JSON.write_text(json.dumps(summary, indent=2) + "\n")

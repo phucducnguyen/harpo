@@ -54,7 +54,11 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   | est. clock | 10.104 ns | **9.897 ns** | Fmax 98.97 → 101.04 MHz |
 
   Correctness re-verified: the 10k-trial golden-model csim passes on the
-  edited design. The archived 2024 design goes from does-not-fit-and-fails-
+  edited design. (Precisely: the tb exercises the `mac_array` datapath the
+  wrapper loops over, and the accepted edit is pragma-only — a byte-level
+  diff of the winner against baseline shows pragma/whitespace lines only, so
+  csim semantics are provably unchanged; see the task README's coverage-scope
+  note.) The archived 2024 design goes from does-not-fit-and-fails-
   timing on xc7z020 to fits-meets-timing-and-40%-faster via one $0 LLM call —
   smaller AND faster, i.e. the baseline pragma wasn't buying speed, only area.
   The winning source is preserved verbatim as

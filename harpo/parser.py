@@ -276,10 +276,19 @@ def parse_csynth(raw: dict) -> dict:
     tgt, est = m.get("clock_target_ns"), m.get("clock_estimated_ns")
     if tgt is not None and est is not None and est > tgt:
         violations.append(f"timing: estimated {est}ns > target {tgt}ns")
-    for name, util in (("LUT", m.get("util_lut")), ("FF", m.get("util_ff")),
-                       ("DSP", m.get("util_dsp")), ("BRAM", m.get("util_bram")),
-                       ("URAM", m.get("util_uram"))):
-        if util is not None and util > 100:
+    for name, cnt_k, avail_k, util_k in (
+            ("LUT", "lut", "avail_lut", "util_lut"),
+            ("FF", "ff", "avail_ff", "util_ff"),
+            ("DSP", "dsp", "avail_dsp", "util_dsp"),
+            ("BRAM", "bram_18k", "avail_bram", "util_bram"),
+            ("URAM", "uram", "avail_uram", "util_uram")):
+        cnt, av, util = m.get(cnt_k), m.get(avail_k), m.get(util_k)
+        if cnt is not None and av is not None and av > 0 and cnt > av:
+            # Exact integer comparison: catches overuse that the 1-decimal
+            # util%% rounding hides (e.g. 53226/53200 -> util_lut 100.0).
+            violations.append(f"resource: {name} count {cnt} > available {av} "
+                              f"({100.0 * cnt / av:.2f}%)")
+        elif util is not None and util > 100:
             violations.append(f"resource: {name} utilization {util}% > 100%")
     parsed["violations"] = violations
 

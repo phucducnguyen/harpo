@@ -6,7 +6,7 @@
     "baseline": "tasks/lns_mac_001/src (archived design, top-level PIPELINE)",
     "fixed": "mac.cpp from docs/case-study/lns_mac_001_ollama_run1_winner.mac.cpp"
   },
-  "note": "Artix-7/Kintex-7 absent: device families not installed in this Vitis 2025.2 setup, NOT a design limitation.",
+  "note": "All five parts synthesized with Vitis HLS 2025.2 (7-series device support installed 2026-07-14). A failing part records its status and errors in its own row, never skipped.",
   "results": [
     {
       "variant": "baseline",

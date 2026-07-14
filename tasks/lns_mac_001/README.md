@@ -26,6 +26,13 @@ as later repaired in a 2026 review pass.
 - Testbench = upstream `test_bench/mac_tb.cpp` (asserted, deterministic seeds,
   double-precision golden model over quantized inputs; tolerance
   `5%|golden| + 1% sum|products| + 2^-8`). The agent may never edit it.
+  **Coverage scope:** the tb drives `mac_array` (the arithmetic core the
+  matrix wrapper loops over), not the synthesized top `mac_nxn_array` itself
+  — so a functional edit confined to the wrapper's loop nest would compile
+  as dead code under gpp csim. Fine for pragma-only edits (g++ ignores
+  pragmas; the accepted run-1 candidate diffs from baseline by pragma lines
+  only), but a future functional-repair run on this task should extend the
+  tb to also call the top wrapper.
 - `ap_int.h` comes from the repo-level vendored dep via the spec's
   `include_dirs` key (`.deps/hls_types/include`, gitignored). Fetch once:
 
