@@ -1,0 +1,163 @@
+{
+  "task": "lns_mac_001",
+  "clock_period_ns": 10.0,
+  "top_function": "mac_nxn_array",
+  "variants": {
+    "baseline": "tasks/lns_mac_001/src (archived design, top-level PIPELINE)",
+    "fixed": "mac.cpp from docs/case-study/lns_mac_001_ollama_run1_winner.mac.cpp"
+  },
+  "note": "Artix-7/Kintex-7 absent: device families not installed in this Vitis 2025.2 setup, NOT a design limitation.",
+  "results": [
+    {
+      "variant": "baseline",
+      "family": "zynq7000",
+      "requested_part": "xc7z020clg400-1",
+      "status": "timing_fail",
+      "pass": false,
+      "violations": [
+        "timing: estimated 10.104ns > target 10ns",
+        "resource: LUT utilization 168.7% > 100%"
+      ],
+      "errors": [],
+      "metrics": {
+        "part": "xc7z020-clg400-1",
+        "clock_estimated_ns": 10.104,
+        "fmax_mhz": 98.97,
+        "latency_worst": 3433,
+        "interval_max": 3434,
+        "lut": 89773,
+        "ff": 43198,
+        "dsp": 0,
+        "bram_18k": 4,
+        "avail_lut": 53200,
+        "util_lut": 168.7,
+        "util_ff": 40.6,
+        "util_bram": 1.4
+      }
+    },
+    {
+      "variant": "baseline",
+      "family": "zynquplus",
+      "requested_part": "xczu9eg-ffvb1156-2-e",
+      "status": "pass",
+      "pass": true,
+      "violations": [],
+      "errors": [],
+      "metrics": {
+        "part": "xczu9eg-ffvb1156-2-e",
+        "clock_estimated_ns": 7.35,
+        "fmax_mhz": 136.05,
+        "latency_worst": 2138,
+        "interval_max": 2139,
+        "lut": 88534,
+        "ff": 30957,
+        "dsp": 0,
+        "bram_18k": 4,
+        "avail_lut": 274080,
+        "util_lut": 32.3,
+        "util_ff": 5.6,
+        "util_bram": 0.2
+      }
+    },
+    {
+      "variant": "baseline",
+      "family": "virtex7",
+      "requested_part": "xc7vx485tffg1761-2",
+      "status": "synthesis_fail",
+      "pass": false,
+      "violations": [],
+      "errors": [
+        "ERROR: [HLS 200-1023] Part 'xc7vx485tffg1761-2' is not installed."
+      ],
+      "metrics": {
+        "part": null,
+        "clock_estimated_ns": null,
+        "fmax_mhz": null,
+        "latency_worst": null,
+        "interval_max": null,
+        "lut": null,
+        "ff": null,
+        "dsp": null,
+        "bram_18k": null,
+        "avail_lut": null,
+        "util_lut": null,
+        "util_ff": null,
+        "util_bram": null
+      }
+    },
+    {
+      "variant": "fixed",
+      "family": "zynq7000",
+      "requested_part": "xc7z020clg400-1",
+      "status": "pass",
+      "pass": true,
+      "violations": [],
+      "errors": [],
+      "metrics": {
+        "part": "xc7z020-clg400-1",
+        "clock_estimated_ns": 9.897,
+        "fmax_mhz": 101.04,
+        "latency_worst": 2073,
+        "interval_max": 2074,
+        "lut": 21013,
+        "ff": 8027,
+        "dsp": 0,
+        "bram_18k": 4,
+        "avail_lut": 53200,
+        "util_lut": 39.5,
+        "util_ff": 7.5,
+        "util_bram": 1.4
+      }
+    },
+    {
+      "variant": "fixed",
+      "family": "zynquplus",
+      "requested_part": "xczu9eg-ffvb1156-2-e",
+      "status": "pass",
+      "pass": true,
+      "violations": [],
+      "errors": [],
+      "metrics": {
+        "part": "xczu9eg-ffvb1156-2-e",
+        "clock_estimated_ns": 7.3,
+        "fmax_mhz": 136.99,
+        "latency_worst": 1985,
+        "interval_max": 1986,
+        "lut": 21231,
+        "ff": 6712,
+        "dsp": 0,
+        "bram_18k": 4,
+        "avail_lut": 274080,
+        "util_lut": 7.7,
+        "util_ff": 1.2,
+        "util_bram": 0.2
+      }
+    },
+    {
+      "variant": "fixed",
+      "family": "virtex7",
+      "requested_part": "xc7vx485tffg1761-2",
+      "status": "synthesis_fail",
+      "pass": false,
+      "violations": [],
+      "errors": [
+        "ERROR: [HLS 200-1023] Part 'xc7vx485tffg1761-2' is not installed."
+      ],
+      "metrics": {
+        "part": null,
+        "clock_estimated_ns": null,
+        "fmax_mhz": null,
+        "latency_worst": null,
+        "interval_max": null,
+        "lut": null,
+        "ff": null,
+        "dsp": null,
+        "bram_18k": null,
+        "avail_lut": null,
+        "util_lut": null,
+        "util_ff": null,
+        "util_bram": null
+      }
+    }
+  ]
+}
