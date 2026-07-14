@@ -19,13 +19,11 @@ Provenance that applies to every record here (recorded per-file too):
   (89,773 / 53,200) and misses timing (10.104 ns vs 10 ns) — status
   `timing_fail` + `resource_overuse` violation. The over-parallelization
   failure mode the HARPO paper argues about, occurring in the wild.
-- **Scope caveat:** the 2024 report's tables sweep Artix/Kintex/Virtex. This
-  Vitis install carries only the Zynq families (`list_part`: zynq,
-  zynquplus, RFSoC variants), so `lns_mac_001_family_sweep.json` covers
-  xc7z020 (Zynq-7000, Artix-class fabric) and xczu9eg (the upstream repo's
-  own MAC target); its Virtex-7 rows record "Part is not installed" as
-  honest evidence of the gap. Reproducing the report's exact family list
-  requires adding device support to the install first.
+- **Scope caveat:** the sweep now covers the 2024 report's three families —
+  Artix-7 (`xc7a200t`, the upstream repo's own multiplier target), Kintex-7
+  (`xc7k325t`), Virtex-7 (`xc7vx485t`) — plus both Zynq parts. Comparisons
+  with the report's printed tables remain indicative rather than exact
+  unless the report's precise part numbers and clocks match these.
 
 File naming: `lns_mac_001_<provider>[_runN].json`.
 
@@ -71,16 +69,21 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   latency 2,073, timing met). The fix is not a lucky sample.
 
 - **`lns_mac_001_family_sweep.json`** (2026-07-14, `scripts/family_sweep.py`,
-  deterministic — no LLM). Baseline vs the run-1 fixed design across
-  installed parts:
+  deterministic — no LLM; parallel Vitis instances). Baseline vs the run-1
+  fixed design, 10 ns clock, all five parts:
 
-  | part | baseline | fixed |
-  |---|---|---|
-  | xc7z020 (Zynq-7000) | timing_fail, LUT 168.7% | pass, LUT 39.5%, lat 2,073 |
-  | xczu9eg (upstream's own target) | pass, LUT 88,534 (32.3%), lat 2,138 | pass, LUT **21,231 (7.7%)**, lat **1,985** |
+  | part | baseline LUT (util) | baseline lat | fixed LUT (util) | fixed lat |
+  |---|---|---|---|---|
+  | xc7z020 (Zynq-7000) | 89,773 (**168.7%**, timing_fail) | 3,433 | 21,013 (39.5%) | 2,073 |
+  | xczu9eg (upstream MAC target) | 88,534 (32.3%) | 2,138 | 21,231 (7.7%) | 1,985 |
+  | xc7a200t (Artix-7, upstream mult. target) | 88,892 (66.0%) | 3,369 | 21,058 (15.6%) | 2,041 |
+  | xc7k325t (Kintex-7) | 88,603 (43.5%) | 2,601 | 20,767 (10.2%) | 2,009 |
+  | xc7vx485t (Virtex-7) | 88,852 (29.3%) | 2,650 | 20,797 (6.9%) | 2,025 |
 
-  Cross-family reading: on the small part the 2024 pragma breaks the design
-  outright; on the large part it "works" — which is why the report's numbers
-  looked fine — while silently spending **4.2×** the LUTs for a design that
-  is also ~7% slower than the fix. Virtex-7 rows record "Part is not
-  installed" (see scope caveat above).
+  Cross-family reading: the result is **universal** — on every part the fixed
+  design is **4.2–4.3× smaller AND faster**. On the small part the 2024
+  pragma breaks the design outright; on every larger part it "works" — which
+  is why the report's numbers looked fine — while silently spending ~4× the
+  LUTs for less performance. The report's three families (Artix/Kintex/
+  Virtex) are all covered, including the exact Artix part the upstream
+  repo's own multiplier config targets.
