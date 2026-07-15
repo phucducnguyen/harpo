@@ -91,3 +91,24 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   LUTs for less performance. The report's three families (Artix/Kintex/
   Virtex) are all covered, including the exact Artix part the upstream
   repo's own multiplier config targets.
+
+## Silicon leg (2026-07-15) — beyond csynth estimates
+
+Everything above stops at the csynth report, by design (HARPO's loop scores
+*estimates*). `silicon/` (repo root) carries the run-1 winner through
+C/RTL co-simulation, real Vivado place & route, and a PYNQ-Z2 board kit;
+full numbers and honest-scope notes live in `silicon/README.md` (one home).
+Headlines that matter to the case study:
+
+- **Cosim PASS** (xsim, Verilog): the generated RTL matches the C golden
+  model on directed + random matrices. Latency 2,979 cycles per 8×8 matmul,
+  deterministic. One disclosed deviation for cosim/board: block control
+  `ap_ctrl_none` → `s_axilite` (datapath untouched).
+- **Measured post-route (xc7z020 @ 10 ns): 8,596 LUTs (16.2%), 0 DSP,
+  timing met (9.362 ns worst path).** The csynth estimate for the same
+  design is 21,013 LUTs (39.5%) — **~2.4× pessimistic**. Estimate-vs-silicon
+  gaps cut both ways; agent loops that score estimates inherit them.
+  (The baseline needs no silicon row: at 168.7% *estimated* LUTs it cannot
+  place at all — "does not fit" is its post-route result.)
+- Board kit (bitstream + vectors + notebook) built and verified up to the
+  point that needs physical hardware; on-board results land here when run.

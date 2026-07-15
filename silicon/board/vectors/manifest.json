@@ -1,0 +1,17 @@
+{
+  "matrix_bytes": 320,
+  "n": 8,
+  "element_bytes": 5,
+  "cases": [
+    {"name": "case0", "label": "directed-uniform-1..10.5"},
+    {"name": "case1", "label": "directed-all-zero"},
+    {"name": "case2", "label": "random-0"},
+    {"name": "case3", "label": "random-1"},
+    {"name": "case4", "label": "random-2"},
+    {"name": "case5", "label": "random-3"},
+    {"name": "case6", "label": "random-4"},
+    {"name": "case7", "label": "random-5"},
+    {"name": "case8", "label": "random-6"},
+    {"name": "case9", "label": "random-7"}
+  ]
+}

@@ -1,0 +1,14 @@
+# Build output — everything here regenerates from run_silicon.tcl /
+# overlay/build_overlay.tcl / host/build_and_run.sh. The committed exceptions
+# are the board-kit deliverables (overlay/mac_lns.bit + .hwh) and the golden
+# vectors in board/vectors/ — those ARE the kit.
+proj_lns_silicon/
+hls.app
+*.log
+*.jou
+vitis_hls.log
+overlay/proj_overlay/
+overlay/vivado*.backup*
+overlay/.Xil/
+host/gen_vectors
+overlay/*.rpt
