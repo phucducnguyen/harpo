@@ -56,9 +56,10 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   Correctness re-verified: the 10k-trial golden-model csim passes on the
   edited design. (Precisely: the tb exercises the `mac_array` datapath the
   wrapper loops over, and the accepted edit is pragma-only — a byte-level
-  diff of the winner against baseline shows pragma/whitespace lines only, so
-  csim semantics are provably unchanged; see the task README's coverage-scope
-  note.) The archived 2024 design goes from does-not-fit-and-fails-
+  diff of the winner against baseline shows only pragma, comment, and
+  whitespace lines (one stale comment removed alongside the moved pragma), so
+  csim semantics are unchanged by construction; see the task README's
+  coverage-scope note.) The archived 2024 design goes from does-not-fit-and-fails-
   timing on xc7z020 to fits-meets-timing-and-40%-faster via one $0 LLM call —
   smaller AND faster, i.e. the baseline pragma wasn't buying speed, only area.
   The winning source is preserved verbatim as
