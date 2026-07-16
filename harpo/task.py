@@ -30,6 +30,7 @@ class TaskContext:
     objective: str = "satisfice_then_area"  # enum: speed_first | area_first | adp | satisfice_then_area | pareto_report
     throughput_target: float | None = None  # interval_max ceiling for satisfice_then_area; None = no explicit target
     include_dirs: list[Path] = field(default_factory=list)  # extra -I dirs for HOST csim only (vendored ap_int.h etc.); vitis uses its own shipped headers
+    impl_verify_top_k: int = 0  # post-route-verify the top K candidates (+ baseline) after optimize; 0 = off
     raw: dict = field(default_factory=dict)
 
 
@@ -98,6 +99,16 @@ def load_task(task_dir: str | Path) -> TaskContext:
         except (TypeError, ValueError):
             throughput_target = None
 
+    # Optional post-route verification depth: after the optimize loop, run
+    # Vivado implementation on the top K candidates (+ the baseline) and pick
+    # the winner from measured PPA. Lives under constraints.target with the
+    # other tool/part knobs. Tolerant: absent/non-numeric/negative -> 0 (off).
+    impl_verify_top_k = 0
+    try:
+        impl_verify_top_k = max(0, int(target.get("impl_verify_top_k", 0)))
+    except (TypeError, ValueError):
+        impl_verify_top_k = 0
+
     return TaskContext(
         task_id=spec.get("task_id", task_dir.name),
         task_dir=task_dir,
@@ -114,5 +125,6 @@ def load_task(task_dir: str | Path) -> TaskContext:
         objective=objective,
         throughput_target=throughput_target,
         include_dirs=include_dirs,
+        impl_verify_top_k=impl_verify_top_k,
         raw={"spec": spec, "constraints": constraints, "budget": budget},
     )

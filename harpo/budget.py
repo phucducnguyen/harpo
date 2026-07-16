@@ -82,6 +82,10 @@ class BudgetManager:
             return (False, "no csynth before csim passes")
         if action == "cosim" and not csim_pass:
             return (False, "no cosim before csim passes")
+        if action == "impl" and not csim_pass:
+            # (The agent additionally verifies only csynth-passing candidates;
+            # this guards the tool-budget layer the same way csynth/cosim are.)
+            return (False, "no impl before csim passes")
         if (regressed or repeated) and action in ("llm_calls",):
             return (False, "stop/rollback: repeated or regressed")
         return (True, "ok")

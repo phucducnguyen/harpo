@@ -25,9 +25,9 @@ from pathlib import Path
 
 from . import store
 from .budget import BudgetManager
-from .candidate import CandidateManager, best, score
+from .candidate import CandidateManager, best, score, score_measured
 from .diagnosis import diagnose, diagnose_csynth
-from .parser import parse_csim, parse_csynth
+from .parser import parse_csim, parse_csynth, parse_impl
 from .patch_engine import apply_patch, check_contract
 from .runner import run_stage
 from .task import TaskContext
@@ -196,6 +196,80 @@ def _run_csynth(cm: CandidateManager, cand, task: TaskContext,
     return cs
 
 
+def _run_impl(cm: CandidateManager, cand, task: TaskContext,
+              budget: BudgetManager, backend: str, events: list[dict]) -> dict:
+    """Post-route-implement one candidate: spend budget, parse, record.
+
+    Measured metrics go on ``cand.impl_metrics`` — NEVER onto csynth_metrics,
+    so the estimate-vs-measured trail survives as evidence. The impl report
+    carries no latency/II data, so those fields are carried over from the
+    candidate's csynth metrics and tagged latency_source="csynth".
+    """
+    raw = run_stage(cm.task_view(cand), "impl", cand.workdir, backend=backend)
+    budget.spend("impl")
+    ip = parse_impl(raw)
+    store.write_run(task.task_id, cand.candidate_id, raw, ip, stage="impl")
+    cand.impl_status = ip["status"]
+    cand.impl_pass = bool(ip["pass"])
+    m = ip.get("metrics")
+    if m is not None:
+        cs = cand.csynth_metrics or {}
+        for k in ("latency_best", "latency_worst", "interval_min",
+                  "interval_max", "ii", "depth", "trip_count"):
+            if m.get(k) is None and cs.get(k) is not None:
+                m[k] = cs[k]
+        m["latency_source"] = "csynth"
+    cand.impl_metrics = m
+    est = (cand.csynth_metrics or {}).get("lut")
+    tail = (f" LUT={m.get('lut')} (csynth est {est}) "
+            f"CP={m.get('clock_estimated_ns')}ns") if m else ""
+    _event(events, f"{cand.candidate_id}: impl {ip['status']}{tail}",
+           event="impl_verify", candidate=cand.candidate_id,
+           status=ip["status"], metrics=m,
+           metrics_estimate=cand.csynth_metrics)
+    return ip
+
+
+def _impl_verify_stage(cm: CandidateManager, task: TaskContext,
+                       budget: BudgetManager, backend: str,
+                       candidates: list, events: list[dict],
+                       top_k: int) -> list:
+    """Measured-fidelity verification rung, run AFTER the optimize loop.
+
+    csynth estimates carry real error (measured 2.4x pessimistic on LUTs on
+    the LNS MAC — and the tool guarantees no direction), so before declaring a
+    winner the top-K candidates by estimate score PLUS the baseline get a real
+    Vivado post-route run. Returns the verified candidates (impl attempted).
+    Fail-open by design: tool unavailable / budget exhausted just ends the
+    rung — the caller falls back to the estimate winner.
+    """
+    eligible = [c for c in candidates if c.csim_pass and c.csynth_pass]
+    if not eligible:
+        _event(events, "impl-verify: no csim+csynth-passing candidates to verify",
+               event="impl_verify_skip")
+        return []
+    pool = sorted(eligible, key=score, reverse=True)[:top_k]
+    baseline = candidates[0]
+    if baseline in eligible and baseline not in pool:
+        pool.append(baseline)  # the 'improved' comparison needs the baseline
+    #                            measured at the same fidelity as the winner
+
+    verified: list = []
+    for cand in pool:
+        allowed, reason = budget.policy_allows(
+            "impl", csim_pass=cand.csim_pass, regressed=False, repeated=False)
+        if not allowed:
+            _event(events, f"impl-verify stops: {reason}", event="stop")
+            break
+        ip = _run_impl(cm, cand, task, budget, backend, events)
+        if ip["status"] == "tool_unavailable":
+            _event(events, "impl backend unavailable — falling back to "
+                   "estimate-based winner", event="stop")
+            break
+        verified.append(cand)
+    return verified
+
+
 def _run_csim(cm: CandidateManager, cand, task: TaskContext,
               budget: BudgetManager, backend: str) -> dict:
     raw = run_stage(cm.task_view(cand), "csim", cand.workdir, backend=backend)
@@ -208,8 +282,35 @@ def _run_csim(cm: CandidateManager, cand, task: TaskContext,
 
 
 def _optimize_result(task, candidates, events, tokens, budget,
-                     baseline, steps) -> dict:
-    winner = best(candidates)
+                     baseline, steps, verified=None) -> dict:
+    # The estimate-based winner is ALWAYS computed; when an impl-verify rung
+    # ran it becomes the recorded comparison point (did ground truth pick a
+    # different winner than the estimates?) rather than the final answer.
+    winner_estimate = best(candidates)
+    base = candidates[0]
+    routed = [c for c in (verified or []) if c.impl_pass]
+    if routed:
+        # All members of `routed` carry measured impl_metrics, so this max()
+        # compares at ONE fidelity — never measured-vs-estimate.
+        winner = max(routed, key=score_measured)
+        winner_fidelity = "post_route"
+        if base.impl_pass:
+            improved = (winner.candidate_id != base.candidate_id
+                        and score_measured(winner) > score_measured(base))
+        else:
+            # The baseline failed to route/fit at measured fidelity while the
+            # winner passed — an improvement in itself (the LNS MAC baseline
+            # was exactly this: 168% LUT estimate, unroutable).
+            improved = winner.candidate_id != base.candidate_id
+    else:
+        winner = winner_estimate
+        winner_fidelity = "csynth_estimate"
+        # 'improved' = winner is a descendant that beat the baseline candidate.
+        improved = bool(
+            winner and winner.candidate_id != base.candidate_id
+            and winner.score > base.score
+        )
+
     result = {
         "task_id": task.task_id,
         "phase": "optimize",
@@ -217,11 +318,11 @@ def _optimize_result(task, candidates, events, tokens, budget,
         "baseline_metrics": baseline,
         "best_candidate": winner.candidate_id if winner else None,
         "best_metrics": winner.csynth_metrics if winner else None,
-        # 'improved' = winner is a descendant that beat the baseline candidate.
-        "improved": bool(
-            winner and winner.candidate_id != candidates[0].candidate_id
-            and winner.score > candidates[0].score
-        ),
+        "winner_fidelity": winner_fidelity,
+        "best_candidate_estimate": (
+            winner_estimate.candidate_id if winner_estimate else None),
+        "best_impl_metrics": winner.impl_metrics if winner else None,
+        "improved": improved,
         "budget": budget.snapshot(),
         "tokens": tokens,
         "events": events,
@@ -237,7 +338,9 @@ def _optimize_result(task, candidates, events, tokens, budget,
 def run_optimize(task: TaskContext, providers: list, *, csim_backend: str = "gpp",
                  synth_backend: str = "vitis_hls", max_steps: int = 8,
                  patience: int = 2, budget: BudgetManager | None = None,
-                 seed_src_dir: str | Path | None = None) -> dict:
+                 seed_src_dir: str | Path | None = None,
+                 impl_verify: int | None = None,
+                 impl_backend: str = "vitis_hls") -> dict:
     """Improve PPA of an already-correct design, never breaking correctness.
 
     Establishes a csim+csynth baseline, then iterates: propose one optimization,
@@ -249,6 +352,12 @@ def run_optimize(task: TaskContext, providers: list, *, csim_backend: str = "gpp
     budget across repair+optimize; default is a fresh one. ``seed_src_dir``, when
     given, overlays that directory's files onto the baseline candidate's source
     copy so the optimizer baselines the REPAIRED code rather than the original.
+
+    ``impl_verify`` (multi-fidelity rung): when > 0, the loop still explores on
+    cheap csynth estimates, but afterwards the top-K candidates + the baseline
+    are post-route-implemented and the winner is picked from MEASURED PPA
+    (estimate winner recorded alongside). None defers to the task's
+    ``impl_verify_top_k`` (constraints.json); 0 forces the rung off.
     """
     budget = budget or BudgetManager(task.budget)
     events: list[dict] = []
@@ -419,8 +528,18 @@ def run_optimize(task: TaskContext, providers: list, *, csim_backend: str = "gpp
             tried.append(proposal.edit_plan or "(unnamed)")
             no_improve += 1
 
+    top_k = task.impl_verify_top_k if impl_verify is None else max(0, impl_verify)
+    verified: list = []
+    if top_k > 0:
+        _event(events,
+               f"impl-verify: post-route measuring top-{top_k} + baseline",
+               event="impl_verify_start", top_k=top_k)
+        verified = _impl_verify_stage(cm, task, budget, impl_backend,
+                                      candidates, events, top_k)
+
     return _optimize_result(task, candidates, events, tokens_total, budget,
-                            baseline=baseline_metrics, steps=step)
+                            baseline=baseline_metrics, steps=step,
+                            verified=verified)
 
 
 # ---------------------------------------------------------------------------
@@ -430,7 +549,7 @@ def run_pipeline(task: TaskContext, repair_providers: list,
                  optimize_providers: list, *, repair_backend: str = "gpp",
                  csim_backend: str = "gpp", synth_backend: str = "vitis_hls",
                  max_repair_steps: int = 12, max_optimize_steps: int = 8,
-                 patience: int = 2) -> dict:
+                 patience: int = 2, impl_verify: int | None = None) -> dict:
     """Run repair, then (only if repaired) optimize, sharing ONE tool budget.
 
     The whole point of Track A is a strict per-task tool-invocation budget, so a
@@ -475,5 +594,6 @@ def run_pipeline(task: TaskContext, repair_providers: list,
     print(f"=== pipeline {task.task_id}: OPTIMIZE phase (seed={seed}) ===")
     opt = run_optimize(task, optimize_providers, csim_backend=csim_backend,
                        synth_backend=synth_backend, max_steps=max_optimize_steps,
-                       patience=patience, budget=budget, seed_src_dir=seed)
+                       patience=patience, budget=budget, seed_src_dir=seed,
+                       impl_verify=impl_verify)
     return _combined(opt)

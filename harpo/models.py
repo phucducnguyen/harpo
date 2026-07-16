@@ -108,6 +108,11 @@ class Candidate:
     csynth_pass: bool = False
     csynth_status: str | None = None     # csynth parser status string
     csynth_metrics: dict | None = None   # PPA: ii/depth/latency/lut/ff/dsp/bram/...
+    impl_pass: bool = False
+    impl_status: str | None = None       # impl (post-route) parser status string
+    impl_metrics: dict | None = None     # MEASURED post-route PPA; kept separate from
+    #                                      csynth_metrics so the estimate-vs-measured
+    #                                      trail survives as evidence
     objective: str = "satisfice_then_area"  # enum: speed_first | area_first | adp | satisfice_then_area | pareto_report
     throughput_target: float | None = None  # interval_max ceiling for satisfice_then_area; None = no explicit target
     budget_spent: dict = field(default_factory=dict)
@@ -125,6 +130,9 @@ class Candidate:
             "csynth_pass": self.csynth_pass,
             "csynth_status": self.csynth_status,
             "csynth_metrics": self.csynth_metrics,
+            "impl_pass": self.impl_pass,
+            "impl_status": self.impl_status,
+            "impl_metrics": self.impl_metrics,
             "objective": self.objective,
             "throughput_target": self.throughput_target,
             "budget_spent": self.budget_spent,

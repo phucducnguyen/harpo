@@ -17,11 +17,11 @@ from pathlib import Path
 
 from . import store
 from .agent import run_optimize, run_pipeline, run_repair
-from .parser import parse_csim, parse_csynth
+from .parser import parse_csim, parse_csynth, parse_impl
 from .runner import run_stage
 from .task import load_task
 
-PARSERS = {"csim": parse_csim, "csynth": parse_csynth}
+PARSERS = {"csim": parse_csim, "csynth": parse_csynth, "impl": parse_impl}
 
 
 def cmd_run(args) -> int:
@@ -89,12 +89,14 @@ def cmd_optimize(args) -> int:
     result = run_optimize(
         task, providers, csim_backend=args.csim_backend,
         synth_backend=args.synth_backend, max_steps=args.max_steps,
-        patience=args.patience,
+        patience=args.patience, impl_verify=args.impl_verify,
     )
 
     summary = {k: result[k] for k in
                ("task_id", "steps", "improved", "best_candidate",
-                "baseline_metrics", "best_metrics", "budget")}
+                "winner_fidelity", "best_candidate_estimate",
+                "baseline_metrics", "best_metrics", "best_impl_metrics",
+                "budget")}
     print(json.dumps(summary, indent=2))
     print(f"\n[optimize] {'IMPROVED' if result['improved'] else 'no improvement'} "
           f"in {result['steps']} step(s) via {names}  log={result['log_path']}",
@@ -114,6 +116,7 @@ def cmd_pipeline(args) -> int:
         repair_backend=args.repair_backend, csim_backend=args.csim_backend,
         synth_backend=args.synth_backend, max_repair_steps=args.max_repair_steps,
         max_optimize_steps=args.max_optimize_steps, patience=args.patience,
+        impl_verify=args.impl_verify,
     )
 
     summary = {k: result.get(k) for k in
@@ -132,7 +135,7 @@ def main(argv=None) -> int:
 
     r = sub.add_parser("run", help="run one stage on a task")
     r.add_argument("task_dir")
-    r.add_argument("--stage", default="csim", choices=["csim", "csynth"])
+    r.add_argument("--stage", default="csim", choices=["csim", "csynth", "impl"])
     r.add_argument("--backend", default="gpp", choices=["gpp", "vitis_hls"])
     r.add_argument("--candidate", default="cand_0000")
     r.set_defaults(func=cmd_run)
@@ -160,6 +163,10 @@ def main(argv=None) -> int:
     op.add_argument("--max-steps", type=int, default=8, dest="max_steps")
     op.add_argument("--patience", type=int, default=2,
                     help="stop after N consecutive non-improvements")
+    op.add_argument("--impl-verify", type=int, default=None, dest="impl_verify",
+                    help="post-route-verify the top K candidates + baseline and "
+                         "pick the winner from MEASURED PPA (0 = off; default: "
+                         "the task's constraints.target.impl_verify_top_k)")
     op.set_defaults(func=cmd_optimize)
 
     pl = sub.add_parser("pipeline",
@@ -184,6 +191,10 @@ def main(argv=None) -> int:
                     dest="max_optimize_steps")
     pl.add_argument("--patience", type=int, default=2,
                     help="stop optimize after N consecutive non-improvements")
+    pl.add_argument("--impl-verify", type=int, default=None, dest="impl_verify",
+                    help="post-route-verify the top K candidates + baseline and "
+                         "pick the winner from MEASURED PPA (0 = off; default: "
+                         "the task's constraints.target.impl_verify_top_k)")
     pl.set_defaults(func=cmd_pipeline)
 
     args = p.parse_args(argv)

@@ -302,3 +302,147 @@ def parse_csynth(raw: dict) -> dict:
         parsed["status"] = "pass"
         parsed["pass"] = True
     return parsed
+
+
+# ---------------------------------------------------------------------------
+# impl (Vivado post-route via Vitis HLS export_design -flow impl)
+# ---------------------------------------------------------------------------
+def _metrics_from_impl_xml(xml_text: str) -> dict:
+    """Pull MEASURED post-route PPA out of export_impl.xml.
+
+    A different, flatter schema than the csynth report: <TimingReport> with
+    plain achieved-period/slack/TIMING_MET tags, and <AreaReport> with plain
+    LUT/FF/... tags under <Resources> + <AvailableResources>. Resource keys are
+    emitted under the SAME names as csynth metrics (lut/avail_lut/util_lut/...)
+    so area_score() and the overuse check work unchanged on measured numbers.
+    The report carries NO latency/II data — the caller carries those over from
+    the candidate's csynth metrics (tagged latency_source="csynth").
+    """
+    root = ET.fromstring(xml_text)
+    timing = root.find("TimingReport")
+    res = root.find("AreaReport/Resources")
+    avail = root.find("AreaReport/AvailableResources")
+
+    m: dict = {
+        "fidelity": "post_route",
+        "part": None,
+        "clock_target_ns": _num(_txt(timing, "TargetClockPeriod")),
+        # Achieved post-route period lands in clock_estimated_ns so the
+        # timing check below and downstream fmax/delta tooling read one key
+        # for "the period this fidelity reports".
+        "clock_estimated_ns": _num(_txt(timing, "AchievedClockPeriod")),
+        "fmax_mhz": None,
+        "slack_ns": _num(_txt(timing, "SLACK_FINAL")),
+        "timing_met": None,
+        "lut": None, "ff": None, "dsp": None, "bram_18k": None, "uram": None,
+        "avail_lut": None, "avail_ff": None, "avail_dsp": None,
+        "avail_bram": None, "avail_uram": None,
+        "util_lut": None, "util_ff": None, "util_dsp": None,
+        "util_bram": None, "util_uram": None,
+    }
+
+    # Part lives in <GeneralInfo><item NAME="Target device" VALUE="..."/>.
+    for item in root.iter("item"):
+        if item.get("NAME") == "Target device":
+            m["part"] = item.get("VALUE")
+            break
+
+    met_txt = _txt(timing, "TIMING_MET")
+    if met_txt is not None:
+        m["timing_met"] = met_txt.strip().upper() == "TRUE"
+    if m["clock_estimated_ns"]:
+        m["fmax_mhz"] = round(1000.0 / m["clock_estimated_ns"], 2)
+
+    # Impl reports BRAM in RAMB18-equivalents under a plain <BRAM> tag; map it
+    # onto the csynth bram_18k key so utilization compares like-for-like.
+    tag_map = {
+        "lut": "LUT", "ff": "FF", "dsp": "DSP", "bram_18k": "BRAM", "uram": "URAM",
+    }
+    for raw_k, tag in tag_map.items():
+        m[raw_k] = _num(_txt(res, tag))
+        m[f"avail_{'bram' if raw_k == 'bram_18k' else raw_k}"] = _num(_txt(avail, tag))
+    for raw_k in tag_map:
+        avail_k = f"avail_{'bram' if raw_k == 'bram_18k' else raw_k}"
+        util_k = f"util_{'bram' if raw_k == 'bram_18k' else raw_k}"
+        cnt, av = m[raw_k], m[avail_k]
+        if cnt is not None and av is not None and av > 0:
+            m[util_k] = round(100.0 * cnt / av, 1)
+    return m
+
+
+def parse_impl(raw: dict) -> dict:
+    """Normalize a post-route implementation run (export_design -flow impl).
+
+    status: tool_unavailable | impl_fail | report_missing | timing_fail |
+            resource_overuse | pass
+    pass:   True when the design routed, met timing, and fits; False otherwise;
+            None when the tool could not run.
+
+    Mirrors parse_csynth's contract so the agent/store/event plumbing treats
+    the measured rung exactly like the estimate rung.
+    """
+    parsed = {
+        "stage": "impl",
+        "backend": raw.get("backend"),
+        "tool": raw.get("tool"),
+        "pass": None,
+        "status": None,
+        "metrics": None,
+        "violations": [],
+        "errors": [],
+        "report_path": raw.get("impl_report_path"),
+        "duration_sec": raw.get("duration_sec"),
+    }
+
+    if not raw.get("available"):
+        parsed["status"] = "tool_unavailable"
+        parsed["errors"] = [raw.get("log", "vitis_hls unavailable")]
+        return parsed
+
+    xml_text = raw.get("impl_xml")
+    if not xml_text or raw.get("rc") not in (0, None):
+        parsed["status"] = "impl_fail" if raw.get("rc") else "report_missing"
+        parsed["pass"] = False
+        parsed["errors"] = _synth_errors(raw.get("log", "")) or \
+            [f"vitis_hls rc={raw.get('rc')}, no export_impl report produced"]
+        return parsed
+
+    try:
+        m = _metrics_from_impl_xml(xml_text)
+    except ET.ParseError as e:
+        parsed["status"] = "impl_fail"
+        parsed["pass"] = False
+        parsed["errors"] = [f"could not parse export_impl XML: {e}"]
+        return parsed
+
+    parsed["metrics"] = m
+
+    violations = []
+    tgt, ach = m.get("clock_target_ns"), m.get("clock_estimated_ns")
+    if m.get("timing_met") is False or (
+            tgt is not None and ach is not None and ach > tgt):
+        violations.append(
+            f"timing: post-route {ach}ns vs target {tgt}ns (TIMING_MET "
+            f"{m.get('timing_met')})")
+    for name, cnt_k, avail_k in (
+            ("LUT", "lut", "avail_lut"),
+            ("FF", "ff", "avail_ff"),
+            ("DSP", "dsp", "avail_dsp"),
+            ("BRAM", "bram_18k", "avail_bram"),
+            ("URAM", "uram", "avail_uram")):
+        cnt, av = m.get(cnt_k), m.get(avail_k)
+        if cnt is not None and av is not None and av > 0 and cnt > av:
+            violations.append(f"resource: {name} count {cnt} > available {av} "
+                              f"({100.0 * cnt / av:.2f}%)")
+    parsed["violations"] = violations
+
+    if any(v.startswith("timing") for v in violations):
+        parsed["status"] = "timing_fail"
+        parsed["pass"] = False
+    elif any(v.startswith("resource") for v in violations):
+        parsed["status"] = "resource_overuse"
+        parsed["pass"] = False
+    else:
+        parsed["status"] = "pass"
+        parsed["pass"] = True
+    return parsed

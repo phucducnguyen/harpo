@@ -234,9 +234,104 @@ def run_csynth_vitis(task: TaskContext, out_dir: Path) -> dict:
     return result
 
 
+# Post-route implementation is minutes-long (measured ~4.6 min on the LNS MAC:
+# Vivado synth ~2 min + place/route ~1 min inside export_design), so it gets a
+# far larger ceiling than csynth.
+IMPL_TIMEOUT_SEC = 1800
+
+
+def _gen_impl_tcl(task: TaskContext, proj_name: str) -> str:
+    """Emit a run.tcl that carries a candidate through csynth AND Vivado
+    post-route implementation via `export_design -flow impl`.
+
+    Same source/part/clock injection as _gen_tcl, with two deliberate
+    differences: csim_design is skipped (correctness is already gated by the
+    loop's csim stage before an impl run is ever allowed) and cosim is not run
+    (this rung measures PPA, not function). export_design internally drives
+    Vivado synth + place & route and writes the measured report to
+    <proj>/sol1/impl/report/verilog/export_impl.xml. Task include_dirs stay
+    excluded for the same reason as _gen_tcl (host-csim-only vendored headers).
+    """
+    cflags = f'-I{task.src_dir} -I{task.tb_dir}'
+    add_src = "\n".join(f'add_files {{{p}}} -cflags "{cflags}"' for p in task.src_files)
+    return f"""\
+open_project -reset {proj_name}
+set_top {task.top_function}
+{add_src}
+open_solution -reset "sol1"
+set_part {{{task.fpga_part}}}
+create_clock -period {task.clock_period_ns} -name default
+csynth_design
+export_design -flow impl -rtl verilog -format ip_catalog
+exit
+"""
+
+
+def run_impl_vitis(task: TaskContext, out_dir: Path) -> dict:
+    """Measured post-route PPA: csynth + Vivado impl via export_design.
+
+    Runs inside the same vitis_hls executable as run_csynth_vitis (HLS drives
+    Vivado internally), so no separate Vivado discovery is needed. Returns the
+    export_impl.xml contents for parse_impl() to normalize.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result = {
+        "stage": "impl",
+        "backend": "vitis_hls",
+        "available": False,
+        "tool": None,
+        "rc": None,
+        "log": "",
+        "impl_xml": None,
+        "impl_report_path": None,
+        "duration_sec": 0.0,
+    }
+    t0 = time.time()
+
+    exe = _vitis_hls_exe()
+    if exe is None:
+        result["log"] = (
+            "vitis_hls not found. Source the Vitis env first, e.g.\n"
+            "  source ~/tools/Xilinx/2025.2/Vitis/settings64.sh\n"
+            "or set $VITIS_HLS to the launcher path."
+        )
+        result["duration_sec"] = round(time.time() - t0, 3)
+        return result
+
+    result["available"] = True
+    result["tool"] = exe
+
+    proj = "impl_proj"
+    tcl_path = out_dir / "run_harpo_impl.tcl"
+    tcl_path.write_text(_gen_impl_tcl(task, proj))
+
+    try:
+        run = subprocess.run(
+            [exe, "-f", str(tcl_path)],
+            cwd=str(out_dir), capture_output=True, text=True,
+            timeout=IMPL_TIMEOUT_SEC,
+        )
+        result["rc"] = run.returncode
+        result["log"] = (run.stdout + run.stderr).strip()
+    except subprocess.TimeoutExpired:
+        result["rc"] = -1
+        result["log"] = f"vitis_hls impl timed out after {IMPL_TIMEOUT_SEC}s"
+        result["duration_sec"] = round(time.time() - t0, 3)
+        return result
+
+    impl_xml = out_dir / proj / "sol1" / "impl" / "report" / "verilog" / "export_impl.xml"
+    if impl_xml.exists():
+        result["impl_xml"] = impl_xml.read_text()
+        result["impl_report_path"] = str(impl_xml)
+
+    result["duration_sec"] = round(time.time() - t0, 3)
+    return result
+
+
 BACKENDS = {
     ("csim", "gpp"): run_csim_gpp,
     ("csynth", "vitis_hls"): run_csynth_vitis,
+    ("impl", "vitis_hls"): run_impl_vitis,
 }
 
 

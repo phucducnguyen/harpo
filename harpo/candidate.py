@@ -139,7 +139,26 @@ def score(cand: Candidate) -> tuple:
     ``best()`` share the same objective (it comes from the task), so tuple
     lengths are consistent within a run; each branch still uses a fixed length.
     """
-    m = cand.csynth_metrics or {}
+    s = _score_from(cand, cand.csynth_metrics or {})
+    cand.score = s
+    return s
+
+
+def score_measured(cand: Candidate) -> tuple:
+    """Score on MEASURED post-route metrics (``impl_metrics``).
+
+    Same objective/tuple shape as ``score()`` but read from the impl-verify
+    rung's measurements, so a winner picked among verified candidates compares
+    at ONE fidelity. Never cached on ``cand.score`` (that stays the estimate
+    score) and never used mid-loop — exploration stays on cheap estimates.
+    Candidates without impl_metrics score as all-missing (0s); callers must
+    only compare candidates that were actually verified.
+    """
+    return _score_from(cand, cand.impl_metrics or {})
+
+
+def _score_from(cand: Candidate, m: dict) -> tuple:
+    """Build the lexicographic objective tuple from an explicit metrics dict."""
 
     def neg(key):  # lower-is-better raw metric -> negate so higher score = better
         v = m.get(key)
@@ -179,7 +198,6 @@ def score(cand: Candidate) -> tuple:
     else:  # "speed_first" (and legacy throughput/latency, folded in at load)
         s = (correctness_tier(cand), iv, lw, na, -steps)
 
-    cand.score = s
     return s
 
 
