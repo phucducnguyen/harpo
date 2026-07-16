@@ -392,6 +392,28 @@ class TestCheckContract(unittest.TestCase):
         self.assertTrue(ok, reasons)
         self.assertEqual(reasons, [])
 
+    def test_accepts_edit_to_non_top_file(self):
+        # A multi-file design's helper unit never names the top function; an
+        # edit there must NOT be rejected for "top missing" (first seen on
+        # lns_mac_001: every add_unit.cpp proposal bounced on this).
+        helper = "int helper(int x) { return x + 1; }\n"
+        (self.src_dir / "helper.cpp").write_text(helper)
+        patched = helper.replace("x + 1", "x + 2")
+        task = self._task()
+        prop = self._proposal("helper.cpp", patched)
+        ok, reasons = check_contract(task, prop, patched)
+        self.assertTrue(ok, reasons)
+        self.assertEqual(reasons, [])
+
+    def test_still_rejects_top_removed_from_top_file(self):
+        # The guard on the file that DOES define the top stays intact: a
+        # patch that drops the top function from vadd.cpp is rejected.
+        task = self._task()
+        prop = self._proposal("vadd.cpp", "// everything deleted\n")
+        ok, reasons = check_contract(task, prop, "// everything deleted\n")
+        self.assertFalse(ok)
+        self.assertTrue(any("missing from patched file" in r for r in reasons))
+
 
 # ---------------------------------------------------------------------------
 # 6) RecipeProvider

@@ -437,32 +437,39 @@ def check_contract(
             f"target {target} not in allowed_edit_globs {globs}"
         )
 
-    # 3) Top-function signature preservation.
+    # 3) Top-function signature preservation. The check guards the file that
+    #    MENTIONS the top function in its original contents; a multi-file
+    #    design's other sources legitimately never name the top, and demanding
+    #    it there auto-rejected every edit to them (first seen on lns_mac_001:
+    #    all add_unit.cpp proposals bounced with "top missing"). Conservative
+    #    like the docstring says: if the original can't be read, skip rather
+    #    than reject.
     if not policy.get("allow_top_signature_change", False):
         top = getattr(task, "top_function", "") or ""
         if top:
-            if top not in new_contents:
-                reasons.append(
-                    f"top function {top!r} missing from patched file"
-                )
-            else:
-                src_dir = getattr(task, "src_dir", None)
-                orig_path = Path(src_dir) / target if src_dir else None
-                if orig_path is not None and orig_path.exists():
-                    try:
-                        original = orig_path.read_text()
-                    except OSError:
-                        original = None
-                    if original is not None:
-                        old_n = _extract_param_count(original, top)
-                        new_n = _extract_param_count(new_contents, top)
-                        # Only reject on a positively detected change.
-                        if (old_n is not None and new_n is not None
-                                and old_n != new_n):
-                            reasons.append(
-                                f"top function {top!r} parameter count changed "
-                                f"{old_n} -> {new_n}"
-                            )
+            src_dir = getattr(task, "src_dir", None)
+            orig_path = Path(src_dir) / target if src_dir else None
+            original = None
+            if orig_path is not None and orig_path.exists():
+                try:
+                    original = orig_path.read_text()
+                except OSError:
+                    original = None
+            if original is not None and top in original:
+                if top not in new_contents:
+                    reasons.append(
+                        f"top function {top!r} missing from patched file"
+                    )
+                else:
+                    old_n = _extract_param_count(original, top)
+                    new_n = _extract_param_count(new_contents, top)
+                    # Only reject on a positively detected change.
+                    if (old_n is not None and new_n is not None
+                            and old_n != new_n):
+                        reasons.append(
+                            f"top function {top!r} parameter count changed "
+                            f"{old_n} -> {new_n}"
+                        )
 
     return (len(reasons) == 0, reasons)
 
