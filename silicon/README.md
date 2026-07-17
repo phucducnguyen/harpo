@@ -24,6 +24,10 @@ Datapath, loop structure, and the winning pragma fix are unchanged.
   changed (see above; full rationale in the file header).
 - `run_silicon.tcl` — csim → csynth → cosim → `export_design -flow impl`
   on `xc7z020clg400-1` @ 10 ns (the PYNQ-Z2 part, same target as the paper).
+- `run_baseline_impl.tcl` — the archived 2024 baseline (task `src/mac.cpp`
+  as-is, `ap_ctrl_none`) through csynth → `export_design -flow impl` on the
+  same part/clock: measures whether the 168.7% estimate's "cannot place"
+  verdict survives implementation (2026-07-17: it does not — see Results).
 - `tb/mac_nxn_cosim_tb.cpp` — cosim testbench driving the synthesis TOP
   (`mac_nxn_array`) directly. The task testbench exercises the `mac_array`
   subfunction, which cosim cannot replay; this one reuses the identical
@@ -56,10 +60,14 @@ Vivado out-of-context place & route (`export_impl.rpt`):
 | Metric | csynth estimate | **Measured post-route** |
 |---|---|---|
 | LUT | 21,013 (39.5%) | **8,596 (16.2%)** |
-| FF | 8,033 | **8,675** |
+| FF | 8,033¹ | **8,675** |
 | DSP | 0 | **0** |
 | BRAM_18K | 4 | **2** |
 | Timing @ 10 ns | est. Fmax 101 MHz | **met — worst path 9.362 ns (≈106.8 MHz)** |
+
+¹ 8,033 is *this workspace's* csynth FF estimate, i.e. the `s_axilite` variant;
+the case-study run record (`lns_mac_001_ollama_run1.json`, pure fix,
+`ap_ctrl_none`) estimates FF 8,027. Same design, different control interface.
 
 Two honest observations: (1) csynth's LUT estimate was ~2.4× pessimistic —
 the HARPO-fixed design measures 16.2%, not 39.5%; estimate-vs-measured gaps
@@ -69,6 +77,23 @@ one gmem bundle serves 2×8 reads per iteration). The cosim interval confirms
 real throughput, and timing still closes post-route. An II-improvement pass
 (separate bundles / local buffering) is future work, deliberately out of
 scope for reproducing the case-study artifact.
+
+## Results — 2026-07-17 baseline implementation run (`run_baseline_impl.tcl`)
+
+The archived 2024 baseline, carried as-is (`ap_ctrl_none`, original top-level
+`PIPELINE`) through the same OOC `export_design -flow impl`:
+**it places** — 25,853 LUT (48.6%), 32,219 FF, 0 DSP, 2 BRAM_18K, timing
+**met** at 9.990 ns (0.010 ns slack). Report:
+`proj_lns_baseline/sol_baseline/impl/report/verilog/export_impl.rpt`
+(regenerate via the tcl).
+
+Consequences, recorded 2026-07-17: the 168.7% csynth estimate was **3.5×
+pessimistic** (vs ~2.5× on the fixed design) — the estimator gap is
+design-dependent and here large enough to flip a resource-overuse verdict.
+Every earlier "cannot place / does not fit" claim in this repo was
+estimate-derived and is superseded by this measurement. The fix still strictly
+dominates measured: 3.0× fewer LUTs (8,527 as-is impl-verify vs 25,853), 40%
+fewer cycles (2,073 vs 3,433), 0.893 ns vs 0.010 ns slack.
 
 ## Board kit — PYNQ-Z2 overlay (built 2026-07-15, awaiting board run)
 
@@ -95,7 +120,7 @@ matmul, Cocotb-verified **bit-exact** against the same C golden model
 
 | Design | LUT (util) | FF | DSP | cycles/matmul | timing |
 |---|---|---|---|---|---|
-| Archived 2024 HLS | est. 89,773 (168.7%) | — | — | — | **does not fit** |
+| Archived 2024 HLS | **25,853 (48.6%)** measured (est. 89,773) | 32,219 | 0 | 3,433 (csynth est.) | met (9.990 ns, 0.010 slack) |
 | HARPO-fixed HLS (kernel) | **8,596 (16.2%)** | 8,675 | 0 | 2,979 (II=16) | met (9.362 ns) |
 | Hand RTL (datapath) | **4,271 (8.0%)** | 3,477 | 0 | **75 (II=1)** | met (WNS +1.733) |
 
@@ -110,9 +135,11 @@ spec, and replication steps: `rtl/README.md`.
 
 ## Honest-scope notes
 
-- The archived 2024 design is not run through place & route here: at 168.7%
-  LUT utilization it cannot place on the xc7z020 at all — "does not fit" *is*
-  its post-route result on this part.
+- ~~The archived 2024 design is not run through place & route here~~
+  Superseded 2026-07-17: it now is (`run_baseline_impl.tcl`), and the
+  estimate-derived "cannot place at 168.7%" assumption was **wrong** — it
+  places at 48.6% with 0.010 ns slack. Kept struck-through as a record of
+  what trusting the estimate would have put in print.
 - `ap_ctrl_none` tops are not always co-simulatable; if the tool refuses,
   the script still completes the place & route leg and says so
   (`SILICON_RUN_DONE cosim_ok=0`). Any control-protocol variant used to

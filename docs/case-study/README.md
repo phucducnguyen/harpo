@@ -11,14 +11,29 @@ Provenance that applies to every record here (recorded per-file too):
   (see the task README for flattening + design choices).
 - **Toolchain:** Vitis HLS 2025.2, Linux; part `xc7z020clg400-1` @ 10 ns.
 - **LLM:** local **`qwen3.6:35b-a3b-q4_K_M`** served by Ollama on a single
-  consumer RTX 5090 (32 GB) — no commercial/frontier API, $0 LLM cost. Since
+  consumer RTX 5090 (32 GB) — no commercial/frontier API, $0 API cost. Since
   the `model_id` provenance change, every `propose` event in these JSONs also
   records the model tag that produced the patch.
+- **Environment provenance (pinned 2026-07-17; the run JSONs do not embed
+  these fields — this block is their one home):** model digest
+  `sha256:07d35212591fc27746f0a317c975a6d68754fb38e9053d82e25f06057af28522`
+  (read from the serving node's `/api/tags`; the served model is unchanged
+  since these runs); Ollama server v0.20.7; decoding is greedy —
+  `{"temperature": 0}` set by the agent in `harpo/patch_engine.py`
+  (overriding the model tag's served default of 1); Vitis HLS v2025.2,
+  Linux x86_64.
 - **Baseline finding (2026-07-14):** the archived design's own top-level
   `#pragma HLS PIPELINE` yields LUT **168.7%** of xc7z020 capacity
   (89,773 / 53,200) and misses timing (10.104 ns vs 10 ns) — status
   `timing_fail` + `resource_overuse` violation. The over-parallelization
   failure mode the HARPO paper argues about, occurring in the wild.
+  **Measured counterpoint (2026-07-17):** carried as-is through Vivado OOC
+  place & route (`silicon/run_baseline_impl.tcl`), the baseline **places** —
+  25,853 LUT (48.6%), timing met with 0.010 ns slack; the estimate was 3.5×
+  pessimistic, enough to flip its own over-capacity verdict. The failure mode
+  is real but at the estimate level on this part; measured, it is the
+  ~3× area + slack story, not a hard "does not fit". Details:
+  `silicon/README.md`.
 - **Scope caveat:** the sweep now covers the 2024 report's three families —
   Artix-7 (`xc7a200t`, the upstream repo's own multiplier target), Kintex-7
   (`xc7k325t`), Virtex-7 (`xc7vx485t`) — plus both Zynq parts. Comparisons

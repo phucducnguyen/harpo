@@ -3,6 +3,7 @@
 # are the board-kit deliverables (overlay/mac_lns.bit + .hwh) and the golden
 # vectors in board/vectors/ — those ARE the kit.
 proj_lns_silicon/
+proj_lns_baseline/
 hls.app
 *.log
 *.jou
