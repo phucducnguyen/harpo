@@ -39,6 +39,13 @@ def _event(events: list[dict], msg: str, **kw) -> None:
     print(f"  · {msg}")
 
 
+def _provider_errors(providers: list) -> dict | None:
+    """Per-provider failure reasons from the last propose() round, for the
+    stop event — so a run log can say WHY no proposal was produced."""
+    errs = {type(p).__name__: getattr(p, "last_error", None) for p in providers}
+    return {k: v for k, v in errs.items() if v} or None
+
+
 def run_repair(task: TaskContext, providers: list, *, backend: str = "gpp",
                max_steps: int = 12, budget: BudgetManager | None = None) -> dict:
     # A caller may thread in a shared BudgetManager (e.g. run_pipeline, so repair
@@ -116,7 +123,8 @@ def run_repair(task: TaskContext, providers: list, *, backend: str = "gpp",
                        target=proposal.target_file, tokens=usage or None)
                 break
         if not proposal:
-            _event(events, "no provider produced a patch", event="stop")
+            _event(events, "no provider produced a patch", event="stop",
+                   provider_errors=_provider_errors(providers))
             break
 
         # --- contract check before spending a tool call on it ---
@@ -462,7 +470,8 @@ def run_optimize(task: TaskContext, providers: list, *, csim_backend: str = "gpp
                        target=proposal.target_file, tokens=usage or None)
                 break
         if not proposal:
-            _event(events, "no provider produced an optimization", event="stop")
+            _event(events, "no provider produced an optimization", event="stop",
+                   provider_errors=_provider_errors(providers))
             break
 
         new_contents = proposal.whole_file or ""

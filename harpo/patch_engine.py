@@ -299,6 +299,8 @@ class OllamaProvider:
         self.last_usage = None
         optimize = diagnosis.recommended_action == "optimize_ppa"
         system = _OLLAMA_OPT_SYSTEM_PROMPT if optimize else _OLLAMA_SYSTEM_PROMPT
+        self.last_error = None
+        content: str | None = None
         try:
             payload = {
                 "model": self.model,
@@ -327,7 +329,7 @@ class OllamaProvider:
                 "total_tokens": (envelope.get("prompt_eval_count") or 0)
                 + (envelope.get("eval_count") or 0),
             }
-            content = envelope["message"]["content"]
+            content = str(envelope["message"]["content"])
             data = json.loads(content)
             target = data.get("target_file")
             if not target:
@@ -337,6 +339,7 @@ class OllamaProvider:
                         if n.endswith((".cpp", ".cc", ".cxx", ".c"))]
                 target = cpps[0] if len(cpps) == 1 else None
             if not target:
+                self.last_error = "proposal omitted target_file (multi-source task)"
                 return None
             return PatchProposal(
                 diagnosis=diagnosis.klass,
@@ -346,8 +349,13 @@ class OllamaProvider:
                 expected_effect=str(data.get("expected_effect", "")),
                 risk_tags=list(data.get("risk_tags", [])),
             )
-        except Exception:
-            # Best-effort: degrade to None, never break the loop.
+        except Exception as e:
+            # Best-effort: degrade to None, never break the loop — but keep
+            # the reason (+ raw model output head, if we got that far) so the
+            # run log can say WHY the loop stopped.
+            self.last_error = f"{type(e).__name__}: {e}"
+            if content is not None:
+                self.last_error += f"; raw content head: {content[:400]!r}"
             return None
 
 

@@ -131,5 +131,24 @@ class TestBoundaryOveruseNotHiddenByRounding(unittest.TestCase):
         self.assertEqual(self.parsed["status"], "resource_overuse")
 
 
+class TestViolationWordingIsPromptStable(unittest.TestCase):
+    """GOLDEN STRINGS. Violation text feeds the LLM prompt verbatim; at
+    temperature 0 a wording change flips the greedy decode (verified by A/B
+    on lns_mac_001, 2026-07-16: the utilization wording elicits the winning
+    mac.cpp pipeline fix, the count wording elicits a dead-end add_unit.cpp
+    edit). Editing these strings is a behavior change — re-validate against
+    recorded runs before shipping."""
+
+    def test_standard_overuse_uses_recorded_run_wording(self):
+        parsed = parse_csynth(_raw(HIERARCHICAL_XML))
+        self.assertIn("resource: LUT utilization 168.7% > 100%",
+                      parsed["violations"])
+
+    def test_rounding_gap_case_uses_count_wording(self):
+        parsed = parse_csynth(_raw(HIERARCHICAL_XML.replace("89773", "53226")))
+        self.assertIn("resource: LUT count 53226 > available 53200 (100.05%)",
+                      parsed["violations"])
+
+
 if __name__ == "__main__":
     unittest.main()

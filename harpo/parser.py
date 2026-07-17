@@ -283,13 +283,17 @@ def parse_csynth(raw: dict) -> dict:
             ("BRAM", "bram_18k", "avail_bram", "util_bram"),
             ("URAM", "uram", "avail_uram", "util_uram")):
         cnt, av, util = m.get(cnt_k), m.get(avail_k), m.get(util_k)
-        if cnt is not None and av is not None and av > 0 and cnt > av:
-            # Exact integer comparison: catches overuse that the 1-decimal
-            # util%% rounding hides (e.g. 53226/53200 -> util_lut 100.0).
+        # Violation strings feed the LLM prompt, and at temperature 0 their
+        # exact wording steers the greedy decode — treat any edit here as a
+        # behavior change needing re-validation. The utilization form is the
+        # wording every recorded run was produced with; the count form fires
+        # only for overuse that the 1-decimal util% rounding hides
+        # (e.g. 53226/53200 -> util_lut 100.0).
+        if util is not None and util > 100:
+            violations.append(f"resource: {name} utilization {util}% > 100%")
+        elif cnt is not None and av is not None and av > 0 and cnt > av:
             violations.append(f"resource: {name} count {cnt} > available {av} "
                               f"({100.0 * cnt / av:.2f}%)")
-        elif util is not None and util > 100:
-            violations.append(f"resource: {name} utilization {util}% > 100%")
     parsed["violations"] = violations
 
     if any(v.startswith("timing") for v in violations):
