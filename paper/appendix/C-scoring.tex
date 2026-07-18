@@ -5,17 +5,20 @@ deterministic recipe library beats a raw LLM on structured-reduction kernels, wh
 the area blow-up of the LLM arm was ultimately a \emph{scoring} defect rather than a
 prompting defect, and how two distinct fixes (plus an autonomy probe) make the
 elegant recipe outrank the LLM under honest scoring. All numbers are copied verbatim
-from the committed evidence under \texttt{runs/} and \texttt{docs/ablations/};
+from the committed canonical evidence under \texttt{docs/ablations/canonical/} (the raw
+\texttt{runs/} tree is gitignored and regenerated locally);
 the canonical 21-row evidence table is \texttt{docs/ablations/canonical/TABLE.md},
 regenerable via \texttt{scripts/ablation\_table.py}.
 
 \subsection{The recipe library}\label{app:scoring:recipes}
 
 The deterministic \textbf{recipe library} (\texttt{recipes.py}) emits
-\emph{fully specified}, correct-by-construction HLS pragmas, one per call, by robust
+\emph{fully specified} HLS pragmas, one per call, by robust
 text scanning (\texttt{ARRAY\_PARTITION cyclic factor=N dim=1},
-\texttt{PIPELINE II=1}, \texttt{UNROLL factor=N}, \ldots), each validated to compile by
-an offline g++ syntax self-test. It costs \textbf{0 tokens}. The optimize default
+\texttt{PIPELINE II=1}, \texttt{UNROLL factor=N}, \ldots). An offline g++ self-test checks that each emitted kernel is
+valid C++ (g++ ignores \texttt{\#pragma HLS}, so this checks the surrounding code,
+not the pragma's HLS effect); the pragmas themselves are exercised end-to-end on
+real Vitis in the ablations below. It costs \textbf{0 tokens}. The optimize default
 provider order is \texttt{recipe,ollama} --- precise deterministic recipes first, the
 LLM only for the tail the catalogue cannot reach (``dumbest reliable tool first'').
 
@@ -52,7 +55,7 @@ This is \textbf{$\sim$42$\times$ area for comparable throughput} (recipe 315 LUT
 LLM 13194 LUT; the LLM is in fact lower-latency, 129 vs.\ 259). For
 \texttt{xc7z020} (53{,}200 LUT) the recipe sits at 0.6\% utilization, the LLM design
 at 24\%. The LLM arm was run \textbf{3$\times$} and was \textbf{highly stable} ---
-identical winning candidate, four-pragma stack, and PPA (LUT 13194, latency 129,
+identical winning candidate, four-pragma stack, and QoR (LUT 13194, latency 129,
 FF 322, 34{,}387 tokens) every time. The blow-up is consistent behavior, not a draw.
 
 \subsection{The honest corrected cause: over-parallelization, enabled by the score}\label{app:scoring:cause}
@@ -77,7 +80,9 @@ Crucially, a follow-up re-ablation traced the \emph{enabler} of the blow-up to t
 \emph{above} a real II$\geq$1 --- so the loop literally rewarded over-unrolling (it
 even accepted a design with interval 3073 vs.\ the baseline's 1024). Prompt hardening
 alone does not fix this. Both durable fixes (\S\ref{app:scoring:fixes}) are now
-implemented.
+implemented. Fig.~\ref{fig:scoring} shows the ranking flip.
+
+\input{fig/scoring-evolution.tex}
 
 \subsection{The two fixes, in depth}\label{app:scoring:fixes}
 
@@ -210,3 +215,18 @@ atax\_001   & interval 64 / LUT 3907 / ADP 22.0               & interval 81 / LU
 LLM-arm re-baselines for the remaining hand-built kernels, and additional PolyBench
 ports, remain future work; the released evidence covers the four head-to-head kernels
 above.
+
+\paragraph{On the fairness of the derived target.} The satisfice target in these
+head-to-head rows is derived by the Fix-3 probe, which is \emph{recipe-only}
+(\S\ref{app:scoring:fixes}); the same target then judges both arms. This is a
+deliberate design choice---the probe is the agent's autonomous fallback when a task
+ships no target---but it does make the recipe arm a participant in defining the
+objective the LLM arm is scored against. We note two mitigations for a fully
+neutral head-to-head, left as future validation: (i)~use an \emph{externally supplied}
+\texttt{throughput\_target} (as a real evaluator would provide) so neither arm defines
+it; and (ii)~report a \emph{target-sensitivity} sweep (target scaled across, e.g.,
+$1.0/0.75/0.5/0.25\times$ the probe value) to show the recipe-vs-LLM ordering is stable
+across the operating point rather than an artifact of one derived target. The
+probe's selection rule itself is provider-neutral (lowest \texttt{interval\_max}
+within a $2\times$ area cap), so the concern is the \emph{source} of the candidates,
+not the rule.

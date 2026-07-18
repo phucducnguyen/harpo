@@ -1,15 +1,23 @@
 \section{Reproducibility}\label{app:repro}
 
 Everything in this paper runs on \emph{free, local} infrastructure at \$0 LLM
-cost, and every reported number is regenerable from committed, replayable JSON
-artifacts in the public repository.
+cost, and every reported number is regenerable from the committed canonical
+evidence table (\texttt{docs/ablations/canonical/}) and the scripts that
+regenerate it from Vitis output.
 
 \subsection{Environment}
 
-The LLM is a local \textbf{qwen} model served by Ollama over plain HTTP; the
+The LLM is a local \textbf{\texttt{qwen3.6:35b-a3b-q4\_K\_M}} model (digest
+\texttt{sha256:07d35212591fc277\allowbreak46f0a317c975a6d6\allowbreak%
+8754fb38e9053d82\allowbreak e25f06057af28522})
+served by Ollama server \textbf{v0.20.7} on a single consumer GPU; the
 endpoint and model are read from the environment variables
-\texttt{HARPO\_OLLAMA\_URL} and \texttt{HARPO\_OLLAMA\_MODEL}, so there
-is no per-token cost. Synthesis uses \textbf{Vitis HLS 2025.2}, which is free on
+\texttt{HARPO\_OLLAMA\_URL} and \texttt{HARPO\_OLLAMA\_MODEL}, so inference is
+local at \$0 LLM API cost. Decoding is greedy: temperature 0
+(\texttt{\{"temperature": 0\}}, set by the agent in
+\texttt{harpo/patch\_engine.py}, overriding the model tag's served default of
+1); no seed is recorded, and the context length (\texttt{num\_ctx}) is not
+recorded. Synthesis uses \textbf{Vitis HLS 2025.2}, which is free on
 Linux for releases prior to 2026.1. The target part is
 \texttt{xc7z020clg400-1} (an entry-level device covered by the free tier) at a
 10\,ns clock. All experiments were run on a Linux workstation. The agent package
@@ -67,11 +75,19 @@ python3 scripts/selftest_csynth.py
 
 \subsection{Replayable per-run artifacts}
 
-Every run writes replayable JSON under \texttt{runs/<task\_id>/}: for each
-candidate, the \texttt{\{csim,csynth\}\_\{raw,parsed\}.json} files, plus the
-phase log carrying the budget, token counts, and per-candidate scores. Because
-each candidate's raw and parsed synthesis output is committed alongside the code,
-every number in this paper can be re-derived from these logs.
+Every run writes replayable JSON \emph{locally} under \texttt{runs/<task\_id>/}:
+for each candidate, the \texttt{\{csim,csynth\}\_\{raw,parsed\}.json} files,
+plus the phase log carrying the budget, token counts, and per-candidate
+scores. This \texttt{runs/} directory is gitignored (only
+\texttt{runs/.gitkeep} is tracked) and is not itself committed. What
+\emph{is} committed to the public repository is the generated canonical
+evidence table and per-kernel ablation JSON under
+\texttt{docs/ablations/canonical/} (\texttt{TABLE.md}, \texttt{TABLE.csv},
+\texttt{PARETO.md}, and one \texttt{<task\_id>\_\_\{llm,recipe\}.json} per
+kernel), from which every number in this paper is copied verbatim.
+Reproduction therefore means: re-run the commands above to regenerate
+\texttt{runs/} locally, then compare the result against the committed
+\texttt{docs/ablations/canonical/} table.
 
 \subsection{Install caveat}
 

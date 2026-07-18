@@ -1,23 +1,26 @@
-\section{Full Measured Results}\label{app:results}
+\section{Full Synthesis-Estimate Results}\label{app:results}
 
-This section collects the complete measured evidence behind the analysis of
-Sec.~\ref{app:scoring}. Every number is copied verbatim from the
+This section collects the complete synthesis-estimate evidence behind the analysis of
+Sec.~\ref{app:scoring} (all resource and timing numbers are Vitis HLS \emph{csynth
+estimates}, not post-place-and-route measurements). Every number is copied verbatim from the
 committed canonical ablation table (\texttt{docs/ablations/canonical/TABLE.md}),
 which is generated, not hand-maintained, from real Vitis HLS 2025.2 runs on part
 \texttt{xc7z020clg400-1} at a 10\,ns clock---or, for the pre-fix records
-preserved below, from their committed run logs (e.g.\ the \texttt{stencil3\_001}
+preserved below, from their (locally regenerated) pre-fix run logs (e.g.\ the \texttt{stencil3\_001}
 best under the old objective keeps FF~54; the canonical table's FF~43 candidate
 was rejected by that objective).
 
-\emph{A note on which objective these numbers use.}
-Sec.~\ref{app:scoring} reports the \emph{corrected} HARPO policy after the scoring
-overhaul (\texttt{interval\_max} throughput plus the default
-\texttt{satisfice\_then\_area} objective). This section preserves the \emph{original}
-measured suite logs for reproducibility, including pre-fix optimization records taken
-under the earlier lexicographic objective; the re-baseline of the affected kernels
-under the corrected default is in Sec.~\ref{app:scoring:rebaseline}. When a per-kernel
-analysis and the canonical evidence table disagree, the canonical table remains
-authoritative.
+\emph{How this section is organized (which objective each number uses).}
+The results here fall into two clearly separated groups. \textbf{(i)~Corrected-objective
+results:} the repair demonstration (\S\ref{app:repair}) is objective-independent, and the
+optimize numbers re-baselined under the current default (\texttt{interval\_max}
+throughput plus \texttt{satisfice\_then\_area}) live in
+Sec.~\ref{app:scoring:rebaseline}. \textbf{(ii)~Historical records under the pre-fix
+objective:} the before/after tables (\S\ref{app:ppa}, \S\ref{app:matmul}) and the full
+suite table (\S\ref{app:suite}) are preserved verbatim under the \emph{earlier}
+lexicographic objective, retained for reproducibility and marked as historical in each
+caption. When a per-kernel historical record and the canonical evidence table disagree,
+the canonical table (\texttt{docs/ablations/canonical/TABLE.md}) is authoritative.
 
 \subsection{Repair Metrics}\label{app:repair}
 
@@ -37,22 +40,26 @@ Repaired & true (winner \texttt{cand\_0001}) \\
 Steps & 2 \\
 LLM calls & 1 \\
 Tokens (prompt / completion / total) & 2054 / 346 / 2400 \\
-Budget spent (csim / csynth / llm) & 2 / 0 / 1 \\
+Budget spent (csim / csynth / prop$^{\dagger}$) & 2 / 0 / 1 \\
 Cost & \$0 (local model) \\
 \bottomrule
 \end{tabular}
 \caption{Repair metrics for \texttt{vadd\_buggy\_001}: a one-character functional
-fix found in a single local-LLM call at zero cost.}
+fix found in a single local-LLM call at zero cost. $^{\dagger}$\texttt{prop} counts
+provider \emph{proposals} (here one real LLM call), not tokens; recipe proposals cost
+0 tokens.}
 \label{tab:repair}
 \end{table}
 
-\subsection{Optimize PPA Before/After}\label{app:ppa}
+\subsection{Optimize QoR Before/After (historical, pre-fix objective)}\label{app:ppa}
 
 The three 1-D reduction tasks were driven by the deterministic \texttt{recipe}
 provider and spent zero LLM tokens. The winning move in every case was a cyclic
 array partition on the kernel input that unblocked pipelining to II=1, kept only
 when the candidate re-passed csim and strictly improved the score.
-Table~\ref{tab:ppa} reports PPA before $\rightarrow$ after. \texttt{mac8\_001} gets
+Table~\ref{tab:ppa} reports QoR before $\rightarrow$ after under the \emph{pre-fix}
+lexicographic objective (the corrected-objective re-baseline of these kernels is in
+Sec.~\ref{app:scoring:rebaseline}). \texttt{mac8\_001} gets
 faster \emph{and} smaller, and \texttt{unroll8\_001} is the headline latency win
 ($\approx$7.8$\times$, 1026$\rightarrow$132) while also shrinking LUT and FF. For
 \texttt{stencil3\_001} the LUT rose (193$\rightarrow$435) and Fmax fell, but II and
@@ -72,14 +79,14 @@ Task & II & Latency (worst) & LUT & FF & Fmax (MHz) \\
 \texttt{unroll8\_001}  & 8$\rightarrow$1 & 1026$\rightarrow$132 & 727$\rightarrow$597 & 451$\rightarrow$368 & 144.45$\rightarrow$144.45 \\
 \bottomrule
 \end{tabular}}
-\caption{Optimize PPA before $\rightarrow$ after using the recipe provider at 0
+\caption{Optimize QoR before $\rightarrow$ after using the recipe provider at 0
 tokens. All three kernels reach II=1 via \texttt{ARRAY\_PARTITION cyclic factor=8
 dim=1} on \texttt{in}; every accepted candidate re-passed C-simulation before
 synthesis metrics were used.}
 \label{tab:ppa}
 \end{table}
 
-\subsection{Generalization to a 2-D Nested-Loop Kernel}\label{app:matmul}
+\subsection{Generalization to a 2-D Nested-Loop Kernel (historical, pre-fix objective)}\label{app:matmul}
 
 The 1-D fixtures above are all reductions. \texttt{matmul\_001} (8$\times$8 integer
 matmul, triple nested loop) shows the same loop works on a canonical 2-D HLS kernel,
@@ -115,7 +122,7 @@ factor=N dim=1} on \texttt{B}), under the original lexicographic objective.}
 The budgeted setting requires accounting token spend alongside tool calls.
 Table~\ref{tab:tokens}
 reports token consumption per phase across the demonstrated suite: the whole suite
-(one real LLM repair plus the recipe-driven PPA optimizations) cost 2400 local
+(one real LLM repair plus the recipe-driven QoR optimizations) cost 2400 local
 tokens (\$0) and stayed well inside the per-task budgets (csim limit 20, csynth 10,
 llm\_calls 30).
 
@@ -142,8 +149,10 @@ tool calls), excluded here because they exercise no LLM.}
 
 \subsection{Full Suite Table}\label{app:suite}
 
-Table~\ref{tab:suite} aggregates every committed phase log
-(\texttt{runs/SUITE.md}). The \texttt{conv2d\_001} optimize row is omitted: it has
+Table~\ref{tab:suite} aggregates every phase log into \texttt{runs/SUITE.md}
+(regenerated locally; \texttt{runs/} is gitignored, and the canonical committed copy
+of these numbers is under \texttt{docs/ablations/canonical/}). These rows are under
+the \emph{pre-fix} lexicographic objective. The \texttt{conv2d\_001} optimize row is omitted: it has
 no committed phase log (all cells are placeholders in the source), so reporting it
 would fabricate measurements. Suite-table caveat: \texttt{run\_suite.py} renders
 the latency column from \texttt{latency\_best}, while the per-task analysis uses
@@ -155,7 +164,7 @@ the latency column from \texttt{latency\_best}, while the per-task analysis uses
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}llllllllllll@{}}
 \toprule
-Task & Phase & Repaired & Improved & II (base$\rightarrow$best) & Latency (base$\rightarrow$best) & LUT (base$\rightarrow$best) & FF (base$\rightarrow$best) & Fmax & Steps & Tokens (P/C/total) & Budget (csim/csynth/llm) \\
+Task & Phase & Repaired & Improved & II (base$\rightarrow$best) & Latency (base$\rightarrow$best) & LUT (base$\rightarrow$best) & FF (base$\rightarrow$best) & Fmax & Steps & Tokens (P/C/total) & Budget (csim/csynth/prop) \\
 \midrule
 \texttt{mac8\_001}       & optimize & --   & True & 4$\rightarrow$1 & 1026$\rightarrow$259 & 369$\rightarrow$315 & 153$\rightarrow$126 & 144.45 & 4 & 0/0/0 & 5/5/4 \\
 \texttt{stencil3\_001}   & optimize & --   & True & 2$\rightarrow$1 & 514$\rightarrow$259  & 193$\rightarrow$435 & 95$\rightarrow$54   & 149.81 & 3 & 0/0/0 & 4/4/3 \\
@@ -163,8 +172,10 @@ Task & Phase & Repaired & Improved & II (base$\rightarrow$best) & Latency (base$
 \texttt{vadd\_buggy\_001} & repair  & True & --   & --              & --                   & --                  & --                  & --     & 2 & 2054/346/2400 & 2/0/1 \\
 \bottomrule
 \end{tabular}}
-\caption{Full suite table (\texttt{runs/SUITE.md}). The \texttt{conv2d\_001}
-optimize row is omitted because it has no committed phase log (placeholder cells in
+\caption{Full suite table (\texttt{runs/SUITE.md}). The \texttt{prop} column counts
+provider proposals (recipe or LLM), not LLM tokens---recipe proposals cost 0 tokens
+(see the Tokens column). The \texttt{conv2d\_001}
+optimize row is omitted because it has no phase log (placeholder cells in
 the source); \texttt{vadd\_001} (Gate-0 toolchain proof) has no phase log; the
 mock-provider repair fixtures \texttt{vadd\_offbyone\_001} and
 \texttt{scale\_wrongop\_001} are logged in \texttt{SUITE.md} but omitted here

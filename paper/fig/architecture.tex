@@ -1,0 +1,58 @@
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  node distance=4mm,
+  block/.style={draw, rounded corners=1pt, align=center, inner sep=2pt,
+                minimum height=0.9cm, text width=1.8cm},
+  wideblock/.style={draw, rounded corners=1pt, align=center, inner sep=2pt,
+                     minimum height=0.9cm, text width=2.2cm},
+  budget/.style={draw, rounded corners=1pt, align=center, inner sep=3pt,
+                 minimum height=0.8cm, fill=black!4},
+  loopbox/.style={draw, dashed, rounded corners=2pt, inner sep=6pt},
+  arrow/.style={-{Latex[length=2mm,width=1.4mm]}, thick}
+]
+
+% top row: pipeline nodes, left to right
+\node[block] (ctx) {\textbf{TaskContext}\\spec / constraints /\\budget (injected)};
+\node[block, right=of ctx] (runner) {\textbf{Tool runner}};
+\node[wideblock, right=of runner] (backend) {\textbf{backend}\\gpp: host func.\ sim\\vitis\_hls: real csim+csynth};
+\node[block, right=of backend] (parser) {\textbf{Report parser}};
+\node[block, right=of parser] (diag) {\textbf{Diagnosis}\\\textbf{engine}};
+\node[wideblock, right=of diag] (patch) {\textbf{Patch provider}\\recipe (0 tokens) |\\ollama (local LLM)};
+\node[block, right=of patch] (cand) {\textbf{Candidate store}\\+ score};
+
+% pipeline arrows
+\draw[arrow] (ctx.east) -- (runner.west);
+\draw[arrow] (runner.east) -- (backend.west);
+\draw[arrow] (backend.east) -- (parser.west);
+\draw[arrow] (parser.east) -- (diag.west);
+\draw[arrow] (diag.east) -- (patch.west);
+\draw[arrow] (patch.east) -- (cand.west);
+
+% loop-back arrow over the top, back to the tool runner
+\draw[arrow] (cand.north) -- ++(0,1.9cm) -| (runner.north);
+\node[font=\scriptsize] at ($(runner.north)!0.5!(cand.north)+(0,2.05cm)$) {next iteration};
+
+% BudgetManager spanning underneath the whole pipeline
+\node[budget, below=1.7cm of parser, minimum width=15.6cm] (bm)
+  {\textbf{BudgetManager} (per-tool limits + reserve + policy gates)};
+
+% dashed meter lines from the budget manager up to every tool-invoking node
+\draw[arrow, dashed, gray] (bm.north -| runner) -- (runner.south);
+\draw[arrow, dashed, gray] (bm.north -| backend) -- (backend.south);
+\draw[arrow, dashed, gray] (bm.north -| patch) -- (patch.south);
+\node[font=\scriptsize, gray, above=1pt] at (bm.north -| diag) {meters every tool call};
+
+% the two control loops, drawn behind the nodes/labels
+\begin{pgfonlayer}{background}
+\node[loopbox, fit=(runner)(backend)(parser)(diag),
+      label={[font=\scriptsize\bfseries]above left:Repair loop (correctness)}] (repair) {};
+\node[loopbox, draw=gray, fit=(diag)(patch)(cand),
+      label={[font=\scriptsize\bfseries, text=gray]above right:Optimize loop (QoR)}] (optimize) {};
+\end{pgfonlayer}
+
+\end{tikzpicture}
+\caption{HARPO's two control loops over a shared per-task budget: the repair loop restores correctness (csim), the optimize loop improves quality of results while re-verifying csim before any synthesis metric is trusted. A deterministic parser and diagnosis engine drive one-pragma-at-a-time proposals from the recipe or LLM provider.}
+\label{fig:arch}
+\end{figure*}

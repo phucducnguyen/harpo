@@ -13,6 +13,8 @@
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,backgrounds,calc}
 \usepackage{url}
 \usepackage{xcolor}
 \usepackage[hidelinks]{hyperref}
@@ -20,7 +22,7 @@
 \begin{document}
 
 \title{HARPO: A Budget-Aware Repair-Then-Optimize\\Agent for HLS C/C++%
-\thanks{Preprint, July 2026. Source code and the replayable run evidence behind
+\thanks{Preprint, July 2026. Source code and the committed canonical evidence behind
 every reported number: \url{https://github.com/phucducnguyen/harpo}.}}
 
 \author{\IEEEauthorblockN{Phuc (Patrick) Duc Nguyen}\\
@@ -33,10 +35,10 @@ ORCID: \href{https://orcid.org/0009-0000-6536-214X}{0009-0000-6536-214X}}}
 \begin{abstract}
 HARPO is a budget-aware autonomous agent for High-Level Synthesis (HLS) that first
 \emph{repairs} a broken C/C++ kernel to functional correctness and then \emph{optimizes}
-performance, power, and area (PPA) under a strict per-task tool-invocation budget. It
+for quality of results (QoR)---performance and resource utilization, not power---under a strict per-task tool-invocation budget. It
 runs as a closed control loop---run tool, parse report, diagnose, propose one minimal
 change, verify, keep or roll back---not as a one-shot prompt, and it enforces
-correctness before PPA: a candidate must pass C-simulation before any synthesis metric
+correctness before QoR: a candidate must pass C-simulation before any synthesis metric
 can improve its rank.
 
 Our central finding is that, in budgeted LLM4HLS, the deeper risk is not merely whether
@@ -51,7 +53,8 @@ derives the throughput target when a task gives none.
 
 We evaluate HARPO on real Vitis HLS~2025.2 targeting \texttt{xc7z020}, with a
 local free model and a deterministic recipe baseline. Every reported number is
-regenerable from committed, replayable JSON artifacts in the public repository.
+regenerable from the committed canonical evidence table (\texttt{docs/ablations/canonical/})
+and the scripts that produce it.
 Across the demonstrated suite, 106 unit tests pass and the agent runs at \$0 LLM
 API cost.
 \end{abstract}
@@ -61,10 +64,10 @@ High-Level Synthesis, LLM agents, design-space exploration, budgeted optimizatio
 \end{IEEEkeywords}
 
 \section{Introduction}
-High-Level Synthesis turns C/C++ into RTL, but reaching good PPA still demands expert
+High-Level Synthesis turns C/C++ into RTL, but reaching good QoR still demands expert
 iteration over pragmas and code structure. A natural question is whether an
 \emph{autonomous LLM agent} can do that iteration: interpret a task, repair or optimize
-HLS code, invoke tool feedback, parse reports, prioritize correctness before PPA, and
+HLS code, invoke tool feedback, parse reports, prioritize correctness before QoR, and
 \emph{terminate within a strict tool-invocation budget}. This problem setting---budgeted
 LLM4HLS with a correctness-dominated ranking rule---follows the task formulation of the
 FPT'26 AMD FPGA Design Competition, Track~A (LLM4HLS); HARPO was built independently
@@ -80,7 +83,7 @@ prompting problem, and fix it with three small, named changes to the agent's
 decision-making (Sec.~\ref{app:scoring}). The contributions are:
 \begin{itemize}
   \item a budget-aware repair-then-optimize agent with a \emph{structural}
-    correctness-before-PPA guarantee (Sec.~\ref{app:arch});
+    correctness-before-QoR guarantee (Sec.~\ref{app:arch});
   \item three decision-policy fixes---metric, policy, and autonomy---each motivated by a
     concrete, measured failure and re-baselined on real Vitis (Sec.~\ref{app:scoring});
   \item an honest, reproducible recipe-vs-LLM ablation showing where a deterministic
@@ -108,9 +111,22 @@ pragma insertion (LIFT~\cite{lift}), LLM-guided design-space exploration
 (HLS-Eval~\cite{hlseval}). These works largely target design \emph{quality} or
 \emph{coverage} given generous tool access.
 
+A concurrent wave (2025--2026) makes the agentic framing explicit: general-purpose
+coding agents optimizing HLS kernels (Agent Factories~\cite{agentfactorieshls}),
+self-evolving agentic refactoring for HLS compatibility and performance
+(AgRefactor~\cite{agrefactor}), QoR-aware code generation via reinforcement learning
+with a proxy reward (HLS-Seek~\cite{hlsseek}), evidence-driven multi-agent
+C-to-synthesizable-C conversion and verification~\cite{evidencedrivenhls},
+timing-aware architecture-specific optimization (TimelyHLS~\cite{timelyhls}), and
+LLM-based HLS logic-bug repair (HLSDebugger~\cite{hlsdebugger}). These share HARPO's
+agentic loop but optimize for raw quality or coverage, typically with generous tool
+access and often frontier models; none makes a strict per-task \emph{tool-invocation
+budget} the governing constraint, nor isolates the scoring-function failure mode we
+study.
+
 HARPO differs in three ways. First, the \emph{tool-invocation budget} is a
 first-class constraint: every csim, csynth, and LLM call is metered, gated by policy,
-and reported. Second, correctness-before-PPA is \emph{structural}, not advisory: an
+and reported. Second, correctness-before-QoR is \emph{structural}, not advisory: an
 optimization's synthesis metrics are never even read until the candidate re-passes
 C-simulation. Third, rather than showcasing the LLM, we ablate it honestly against a
 zero-token deterministic baseline and find that under a naive score the LLM's fluency
@@ -137,10 +153,10 @@ mechanism but in what the agent is told to want. Scoring throughput on a metric 
 cannot vanish (\texttt{interval\_max}), satisficing throughput to a target before
 minimizing area, and deriving that target with a capped zero-token probe were each
 small changes; together they invert the ranking between an elegant 315-LUT design and
-a 13194-LUT one. We release the agent, its tasks, and the replayable evidence behind
+a 13194-LUT one. We release the agent, its tasks, and the committed canonical evidence behind
 every number so that both the system and its failure modes can be checked directly.
 
-\begin{thebibliography}{9}
+\begin{thebibliography}{99}
 \bibitem{nane2016survey}
 R.~Nane \emph{et al.}, ``A survey and evaluation of FPGA high-level synthesis tools,''
 \emph{IEEE Trans. Computer-Aided Design of Integrated Circuits and Systems},
@@ -175,6 +191,35 @@ high-level synthesis using LLMs,'' arXiv:2505.22086, 2025.
 R.~Li, J.~Xiong, X.~He, J.~Zhao, J.~Lv, H.~Fang, L.~Qi, and X.~Wang, ``ChatHLS:
 Towards systematic design automation and optimization for high-level synthesis,''
 arXiv:2507.00642, 2025.
+
+\bibitem{agentfactorieshls}
+A.~Bhandwaldar, M.~Choudhury, R.~Puri, and A.~Srivastava, ``Agent factories for
+high level synthesis: How far can general-purpose coding agents go in hardware
+optimization?'' arXiv:2603.25719, 2026.
+
+\bibitem{agrefactor}
+Y.~Zou, Z.~Ding, Y.~Sun, and J.~Cong, ``AgRefactor: Self-evolving agentic workflow
+for HLS compatibility and performance,'' in \emph{Proc. ACM/SIGDA Int. Symp.
+Field-Programmable Gate Arrays (FPGA)}, 2026; arXiv:2606.30949.
+
+\bibitem{hlsseek}
+Q.~Zou, F.~Yu, H.~Tan, Y.~Chen, B.~He, and W.-F. Wong, ``HLS-Seek: QoR-aware code
+generation for high-level synthesis via proxy comparative reward reinforcement
+learning,'' arXiv:2605.13536, 2026.
+
+\bibitem{evidencedrivenhls}
+Z.~Zhao, H.~Lang, Z.~Xiao, L.~Z.~Hu, J.~I.~Adebisi, and S.~Mai, ``Evidence-driven
+LLM agent for C-to-synthesizable-C conversion and verification,'' arXiv:2606.28409,
+2026.
+
+\bibitem{timelyhls}
+N.~Mashnoor, M.~Akyash, H.~Kamali, and K.~Azar, ``TimelyHLS: LLM-based timing-aware
+and architecture-specific FPGA HLS optimization,'' arXiv:2507.17962, 2025.
+
+\bibitem{hlsdebugger}
+J.~Wang, S.~Liu, Y.~Lu, and Z.~Xie, ``HLSDebugger: Identification and correction of
+logic bugs in HLS code with LLM solutions,'' in \emph{Proc. IEEE/ACM Int. Conf.
+Computer-Aided Design (ICCAD)}, 2025; arXiv:2507.21485.
 \end{thebibliography}
 
 \end{document}

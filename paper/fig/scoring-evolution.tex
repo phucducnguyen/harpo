@@ -1,0 +1,48 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  node distance=3mm,
+  htitle/.style={align=center, font=\scriptsize\bfseries, text width=2.5cm},
+  block/.style={draw, rounded corners=1pt, align=center, inner sep=2pt,
+                minimum height=0.65cm, text width=2.5cm},
+  badblock/.style={block, draw=red, thick, fill=red!8, text=red},
+  goodblock/.style={block, draw=black, very thick, fill=black!5},
+  arrow/.style={-{Latex[length=1.8mm,width=1.3mm]}, thick}
+]
+
+% left column: old per-loop-II score
+\node[htitle] (Lh) {Old score\\(per-loop II)};
+\node[block, below=of Lh] (L2) {full unroll};
+\node[block, below=of L2] (L3) {II = None\\(sorted neutral-best)};
+\node[badblock, below=of L3] (L4) {ranked BEST};
+\node[badblock, below=of L4] (L5) {13194 LUT};
+
+\draw[arrow] (Lh.south) -- (L2.north);
+\draw[arrow] (L2.south) -- (L3.north);
+\draw[arrow] (L3.south) -- (L4.north);
+\draw[arrow] (L4.south) -- (L5.north);
+
+% right column: corrected score
+\node[htitle, right=1.4cm of Lh] (Rh) {New score\\(interval\_max +\\satisfice\_then\_area)};
+\node[block, below=of Rh] (R2) {recipe:\\one pragma};
+\node[block, below=of R2] (R3) {interval = 256\\(meets target)};
+\node[goodblock, below=of R3] (R4) {ranked BEST};
+\node[goodblock, below=of R4] (R5) {315 LUT};
+
+\draw[arrow] (Rh.south) -- (R2.north);
+\draw[arrow] (R2.south) -- (R3.north);
+\draw[arrow] (R3.south) -- (R4.north);
+\draw[arrow] (R4.south) -- (R5.north);
+
+% comparison between the two final outcomes
+\draw[dashed] (L5.south) -- ++(0,-0.3cm) coordinate (Lb);
+\draw[dashed] (R5.south) -- ++(0,-0.3cm) coordinate (Rb);
+\draw[{Latex[length=1.8mm,width=1.3mm]}-{Latex[length=1.8mm,width=1.3mm]}, dashed]
+  (Lb) -- (Rb) node[midway, below, font=\scriptsize, align=center]
+  {\textasciitilde42x area,\\comparable throughput};
+
+\end{tikzpicture}
+\caption{Why scoring, not prompting, was load-bearing (\texttt{mac8\_001}). Under the old per-loop-II metric a fully-unrolled design reports II=None, sorted as neutral-best, so the greedy loop rewards over-unrolling to 13194 LUT. Under the corrected metric (design \texttt{interval\_max}) plus the \texttt{satisfice\_then\_area} objective, the elegant single-pragma recipe design (315 LUT) outranks it. Same loop, same LLM; the ranking inverts.}
+\label{fig:scoring}
+\end{figure}
