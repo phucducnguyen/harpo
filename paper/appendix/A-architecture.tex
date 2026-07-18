@@ -3,9 +3,9 @@
 HARPO normalizes a task bundle (\texttt{spec/constraints/budget} JSON)
 into one \texttt{TaskContext}---top function, sources, testbench, part,
 clock, policy, budget---all \emph{injected}, never hardcoded, so the
-agent parameterizes over an external evaluator's task inputs rather than
-hardcoding them; full integration with a foreign evaluation harness may
-still need a thin adapter (Sec.~\ref{app:coverage}). A tool runner
+agent takes an external evaluator's tasks as its inputs; wiring it to a
+foreign evaluation harness end-to-end may still need a thin adapter
+(Sec.~\ref{app:coverage}). A tool runner
 dispatches stages to a backend: host \texttt{g++} (host \emph{functional}
 simulation---it compiles and runs the testbench but ignores
 \texttt{\#pragma HLS}, so it is not Vitis C-simulation) or
@@ -38,8 +38,8 @@ structural rather than advisory.
     \texttt{budget.json}) into one \texttt{TaskContext}: top function,
     source/testbench file lists, part, clock, policy, and budget. Part,
     clock, and sources are \emph{injected}, never hardcoded, so the
-    agent parameterizes over the evaluator's task inputs (full external-harness
-    integration may need an adapter; Sec.~\ref{app:coverage}).
+    agent takes the evaluator's tasks as its inputs (a foreign harness may
+    still need a thin adapter; Sec.~\ref{app:coverage}).
   \item \textbf{Tool runner.} Dispatches a stage to a backend:
     \texttt{gpp} (host g++ compile+run = host \emph{functional} simulation, no Vitis
     needed; g++ ignores \texttt{\#pragma HLS}, so this is not Vitis csim) or
@@ -122,9 +122,9 @@ llm\_calls:30\}}, with a held-back \texttt{reserve
 \{final\_csim:1, final\_csynth:1, final\_cosim:1\}}. A missing limit is
 unlimited. \texttt{can(action)} is true only while
 $\texttt{spent} < \texttt{limit} - \texttt{reserve}$---the reserve holds back one
-invocation of each verification stage so exploration can never spend the loop's
-last csim/csynth; every accepted candidate is, in any case, already re-verified
-in-loop before its metrics are trusted (Sec.~\ref{app:arch:invariant}).
+invocation of each verification stage, so exploration can never spend the loop's
+last csim or csynth. Every accepted candidate is also re-verified in-loop before
+its metrics are trusted (Sec.~\ref{app:arch:invariant}).
 
 \texttt{policy\_allows} enforces three gates, in order:
 \begin{enumerate}

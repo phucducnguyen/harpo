@@ -216,17 +216,17 @@ LLM-arm re-baselines for the remaining hand-built kernels, and additional PolyBe
 ports, remain future work; the released evidence covers the four head-to-head kernels
 above.
 
-\paragraph{On the fairness of the derived target.} The satisfice target in these
-head-to-head rows is derived by the Fix-3 probe, which is \emph{recipe-only}
-(\S\ref{app:scoring:fixes}); the same target then judges both arms. This is a
-deliberate design choice---the probe is the agent's autonomous fallback when a task
-ships no target---but it does make the recipe arm a participant in defining the
-objective the LLM arm is scored against. We note two mitigations for a fully
-neutral head-to-head, left as future validation: (i)~use an \emph{externally supplied}
-\texttt{throughput\_target} (as a real evaluator would provide) so neither arm defines
-it; and (ii)~report a \emph{target-sensitivity} sweep (target scaled across, e.g.,
-$1.0/0.75/0.5/0.25\times$ the probe value) to show the recipe-vs-LLM ordering is stable
-across the operating point rather than an artifact of one derived target. The
-probe's selection rule itself is provider-neutral (lowest \texttt{interval\_max}
-within a $2\times$ area cap), so the concern is the \emph{source} of the candidates,
-not the rule.
+\paragraph{Fairness of the derived target.} The satisfice target in these
+head-to-head rows comes from the Fix-3 probe, which is \emph{recipe-only}
+(\S\ref{app:scoring:fixes}), and that same target then scores both arms. The probe
+is the agent's autonomous fallback when a task ships no target, so using it here
+matches how the agent runs in practice; even so, it lets the recipe arm help define
+the objective the LLM arm is judged against. Two changes would make the comparison
+fully neutral, and we leave both to future validation. An externally supplied
+\texttt{throughput\_target}, of the kind a real evaluator provides, would keep either
+arm from setting it. A target-sensitivity sweep---scaling the target across, say,
+$1.0/0.75/0.5/0.25\times$ the probe value---would show whether the recipe-vs-LLM
+ordering holds across operating points or is an artifact of one derived target. The
+probe's selection rule is already provider-neutral (lowest \texttt{interval\_max}
+within a $2\times$ area cap); what is open to question is where the candidates come
+from.

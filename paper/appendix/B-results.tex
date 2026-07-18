@@ -10,17 +10,15 @@ preserved below, from their (locally regenerated) pre-fix run logs (e.g.\ the \t
 best under the old objective keeps FF~54; the canonical table's FF~43 candidate
 was rejected by that objective).
 
-\emph{How this section is organized (which objective each number uses).}
-The results here fall into two clearly separated groups. \textbf{(i)~Corrected-objective
-results:} the repair demonstration (\S\ref{app:repair}) is objective-independent, and the
-optimize numbers re-baselined under the current default (\texttt{interval\_max}
-throughput plus \texttt{satisfice\_then\_area}) live in
-Sec.~\ref{app:scoring:rebaseline}. \textbf{(ii)~Historical records under the pre-fix
-objective:} the before/after tables (\S\ref{app:ppa}, \S\ref{app:matmul}) and the full
-suite table (\S\ref{app:suite}) are preserved verbatim under the \emph{earlier}
-lexicographic objective, retained for reproducibility and marked as historical in each
-caption. When a per-kernel historical record and the canonical evidence table disagree,
-the canonical table (\texttt{docs/ablations/canonical/TABLE.md}) is authoritative.
+The numbers below use two different objectives, and the distinction matters. The
+repair demonstration (\S\ref{app:repair}) does not depend on the objective at all.
+The optimize kernels re-baselined under the current default (\texttt{interval\_max}
+throughput with \texttt{satisfice\_then\_area}) are in Sec.~\ref{app:scoring:rebaseline}.
+The before/after tables (\S\ref{app:ppa}, \S\ref{app:matmul}) and the full suite table
+(\S\ref{app:suite}) instead keep their original numbers under the earlier lexicographic
+objective, and each caption flags them as historical. Where a historical per-kernel
+record disagrees with the canonical evidence table, the canonical table
+(\texttt{docs/ablations/canonical/TABLE.md}) is authoritative.
 
 \subsection{Repair Metrics}\label{app:repair}
 
