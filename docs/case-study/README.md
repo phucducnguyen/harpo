@@ -124,7 +124,8 @@ Headlines that matter to the case study:
   timing met (9.362 ns worst path).** The csynth estimate for the same
   design is 21,013 LUTs (39.5%) — **~2.4× pessimistic**. Estimate-vs-silicon
   gaps cut both ways; agent loops that score estimates inherit them.
-  (The baseline needs no silicon row: at 168.7% *estimated* LUTs it cannot
-  place at all — "does not fit" is its post-route result.)
+  (Baseline silicon row, measured 2026-07-17: it **places** — 25,853 LUT
+  (48.6%), timing met; see the baseline-finding bullet above. The estimate's
+  over-capacity verdict was itself the error.)
 - Board kit (bitstream + vectors + notebook) built and verified up to the
   point that needs physical hardware; on-board results land here when run.

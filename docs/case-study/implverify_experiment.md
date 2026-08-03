@@ -8,10 +8,11 @@ than the estimates?
 **Answer: yes — on 1 of 4 tasks (atax_001) the measured winner differs from
 the estimate winner, via a clean area-ranking reversal.** On the other three
 tasks the winners agree, but the estimate error is large and inconsistent in
-direction on every task: LUT estimates ran ~2.2–2.5x pessimistic while
-post-route clock came in *worse* than the csynth estimate everywhere — on
-atax_001 the baseline that csynth scored at 6.923 ns actually **fails 10 ns
-timing post-route** (10.003 ns).
+direction on every task: LUT estimates ran ~2.0–2.5x pessimistic (winner
+pairs 2.03–2.46x) while post-route clock came in *worse* than the csynth
+estimate on 11 of the 12 measured candidates (exception: lns_mac cand_0001,
+est 9.897 → measured 9.107 ns) — on atax_001 the baseline that csynth scored
+at 6.923 ns actually **fails 10 ns timing post-route** (10.003 ns).
 
 ## Setup
 
@@ -56,8 +57,14 @@ cand_0003.
 - **Area: pessimistic everywhere.** lns_mac 21013→8527 (2.46x), atax
   3907→1923 (2.03x), bicg 3596→1578 (2.28x), gemm 1238→573 (2.16x).
   (Consistent with the 2.4x gap measured manually in `silicon/` on 7/15.)
-- **Timing: optimistic everywhere.** csynth estimated 6.9–9.9 ns on these
-  designs; every post-route clock came in slower, and atax_001's baseline
+- **Timing: optimistic almost everywhere.** csynth estimated 6.9–9.9 ns on
+  these designs; 11 of the 12 measured candidates came in slower post-route
+  (lns_mac cand_0001 alone came in faster, 9.897→9.107 ns). A second
+  estimate-pass→measured-fail flip hides in gemm_001: cand_0001 (est
+  6.912 ns) fails post-route at 10.168 ns (slack −0.168) — it never
+  threatened the winner only because it was already rejected on estimated
+  PPA, but an estimate-only loop would have recorded it as timing-clean.
+  And atax_001's baseline
   flipped from estimate-passing (6.923 ns) to a post-route **timing failure**
   (10.003 ns). An estimate-only loop would report that baseline as meeting
   timing.
@@ -72,8 +79,9 @@ was. The cost was one `export_design -flow impl` run per finalist
 Notes for the paper: gemm_001's honest no-improvement (recipes' partition
 proposals didn't beat baseline under satisfice_then_area) still exercised the
 rung — the measured pool confirmed the baseline stands. lns_mac_001's
-baseline is excluded from its pool by construction (fails the csynth
-resource-feasibility check at 168.7% estimated LUT). The exclusion is
+baseline is excluded from its pool by construction (fails csynth checks:
+`timing_fail` at 10.104 ns vs the 10 ns target, plus resource overuse at
+168.7% estimated LUT). The exclusion is
 estimate-level only: the 2026-07-17 baseline P&R (`silicon/run_baseline_impl.tcl`)
 showed that design does place — 25,853 LUT (48.6%), timing met — i.e. the
 estimator itself misclassified it, which is this experiment's point.
