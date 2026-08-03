@@ -49,8 +49,20 @@ minimizes area. Estimated LUT ordering fully **reverses** post-route:
 | cand_0003 | 4068 (3rd) | **1814 (1st)** | 9.119 ns |
 
 The candidate the estimates ranked *last* is the smallest **and** fastest
-after place & route. Scoring estimates alone ships cand_0002; measuring ships
-cand_0003.
+of the three finalists after place & route. Scoring estimates alone ships
+cand_0002; measuring ships cand_0003.
+
+Margin caveat (added 2026-08-02 after independent audit): the robust
+component is the first-place flip — cand_0003 beats the estimate winner by
+109 LUT (6.0%). The 2nd↔3rd swap is 4 LUT (0.2%), inside single-run P&R
+noise (two runs of one design differed by 69 LUT / 0.255 ns — see the
+silicon-leg vs impl-verify pair for lns_mac run-1 winner), so that pair
+should be read as unordered, not "fully" reversed. Each candidate got
+exactly one P&R run at the default seed; the same resolution bound applies
+to atax baseline's 0.003 ns timing fail and bicg baseline's 0.002 ns pass —
+the ~3 ns estimate error is real, the side of the line is within noise.
+(The measured pool also contains atax cand_0000 at 1,502 LUT — smaller than
+cand_0003 but not a finalist: 304 cycles vs the 280 target, timing fail.)
 
 ## Secondary finding: estimate error is bidirectional
 
