@@ -72,5 +72,8 @@ was. The cost was one `export_design -flow impl` run per finalist
 Notes for the paper: gemm_001's honest no-improvement (recipes' partition
 proposals didn't beat baseline under satisfice_then_area) still exercised the
 rung — the measured pool confirmed the baseline stands. lns_mac_001's
-baseline is excluded from its pool by construction (fails csynth at 168.7%
-LUT; unroutable).
+baseline is excluded from its pool by construction (fails the csynth
+resource-feasibility check at 168.7% estimated LUT). The exclusion is
+estimate-level only: the 2026-07-17 baseline P&R (`silicon/run_baseline_impl.tcl`)
+showed that design does place — 25,853 LUT (48.6%), timing met — i.e. the
+estimator itself misclassified it, which is this experiment's point.
