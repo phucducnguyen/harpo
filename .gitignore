@@ -32,3 +32,5 @@ paper/*.blg
 docs/HANDOVER.md
 docs/CHECKPOINT.md
 docs/REGISTRATION.md
+paper/claims.yaml
+paper/scripts/
