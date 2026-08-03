@@ -306,9 +306,10 @@ def _optimize_result(task, candidates, events, tokens, budget,
             improved = (winner.candidate_id != base.candidate_id
                         and score_measured(winner) > score_measured(base))
         else:
-            # The baseline failed to route/fit at measured fidelity while the
-            # winner passed — an improvement in itself (the LNS MAC baseline
-            # was exactly this: 168% LUT estimate, unroutable).
+            # No measured baseline to compare against (excluded at csynth or
+            # failed impl) while the winner passed — an improvement in itself.
+            # ⚠️ The LNS MAC baseline was estimate-excluded (168.7% LUT) yet
+            # PLACES when measured (48.6%, 2026-07-17) — never say unroutable.
             improved = winner.candidate_id != base.candidate_id
     else:
         winner = winner_estimate
