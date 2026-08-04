@@ -6,13 +6,12 @@ the area blow-up of the LLM arm was ultimately a \emph{scoring} defect rather th
 prompting defect, and how two distinct fixes (plus an autonomy probe) make the
 elegant recipe outrank the LLM under honest scoring. All numbers are copied verbatim
 from the committed canonical evidence under \texttt{docs/ablations/canonical/} (the raw
-\texttt{runs/} tree is gitignored and regenerated locally), with one deliberate
-exception: figures drawn from the \emph{pre-fix} run record that motivated the overhaul
-(\texttt{docs/ablations/mac8\_001\_ollama.json}) --- the raw-LLM row of
-Table~\ref{tab:headline} and the within-run rescoring in \S\ref{app:scoring:cause}.
-Those are flagged as pre-fix wherever they appear. Normalized \texttt{area\_score}
-values quoted below are recomputed from the stored csynth metrics via
-\texttt{harpo/area.py}; the run logs store raw resource counts, not the score.
+\texttt{runs/} tree is gitignored and regenerated locally), with two exceptions, both
+flagged where they appear: figures from the \emph{pre-fix} record
+\texttt{docs/ablations/mac8\_001\_ollama.json} (Table~\ref{tab:headline}'s raw-LLM row
+and the \S\ref{app:scoring:cause} rescoring), and the \texttt{area\_score} values for
+that record, recomputed via \texttt{harpo/area.py} because it sits outside
+\texttt{canonical/}, whose own table carries an \texttt{area\_score} column.
 The canonical 21-row evidence table is \texttt{docs/ablations/canonical/TABLE.md},
 regenerable via \texttt{scripts/ablation\_table.py}.
 
@@ -101,14 +100,16 @@ applies exactly the one pragma that unblocks II=1 and stops.
 Crucially, a follow-up re-ablation traced the \emph{enabler} of the blow-up to the
 \textbf{score itself}, not the LLM. A fully-unrolled loop reports no per-loop II
 (\texttt{None}), which the old throughput term sorted as neutral and thus ranked
-\emph{above} a real II$\geq$1 --- so the loop literally rewarded over-unrolling (it
-even accepted a design with interval 3073 vs.\ the baseline's 1024). Prompt hardening
+\emph{above} a real II$\geq$1 --- so the loop literally rewarded over-unrolling (in a
+further pre-fix record under \texttt{docs/ablations/},
+\texttt{mac8\_001\_ollama\_postprompt.json}, it accepted a design at interval 3073
+vs.\ the baseline's 1024; under the corrected metric the same design is discarded,
+Table~\ref{tab:recipe-vs-llm}). Prompt hardening
 alone does not fix this. Both durable fixes (\S\ref{app:scoring:fixes}) are now
 implemented. Fig.~\ref{fig:scoring} contrasts the two scoring regimes and the ranking
 the corrected objective implies.
 
-The same committed run record also carries a rescoring result that needs no
-cross-run comparison at all, and it is the sharpest evidence we have.
+The same run record also supports a rescoring that needs no cross-run comparison.
 \texttt{docs/ablations/mac8\_001\_ollama.json} stores every candidate with its csynth
 metrics and its pre-fix score tuple. Two of them share an identical design
 \texttt{interval\_max} of 128: \texttt{cand\_0004} at \textbf{13194~LUT}
@@ -116,8 +117,8 @@ metrics and its pre-fix score tuple. Two of them share an identical design
 \textbf{1092~LUT} (\texttt{ii}~=~4) scored $(2,-4,-131,-1092,0)$. The old score kept
 \texttt{cand\_0004} --- 12$\times$ the LUT and 10.7$\times$ the normalized
 \texttt{area\_score} (0.2510 vs.\ 0.0235) --- for a 1.5\% latency edge (129 vs.\ 131
-cycles) and \emph{no throughput gain whatsoever}, purely because a missing per-loop II
-sorted as neutral and outranked a real \texttt{ii}~=~4. Re-scoring that same realized
+cycles) and \emph{no throughput gain whatsoever}, purely because the missing per-loop
+II sorted as neutral. Re-scoring that same realized
 candidate pool under \texttt{interval\_max}~+~\texttt{satisfice\_then\_area} (target
 256) selects \texttt{cand\_0005}. This is a rescoring of one run's own candidates, not
 a re-run: a corrected-objective run would have proposed differently, as the canonical
@@ -136,7 +137,8 @@ The per-loop term sorted a fully-unrolled loop's missing II (\texttt{None}) as n
 0, beating a real II$\geq$1 and rewarding over-unrolling. \texttt{interval\_max} is
 always reported by Vitis; per-loop \texttt{ii} is now diagnostic-only. Under it, the
 accepted \texttt{mac8\_001} interval-3073 design correctly loses to the baseline
-(1024), and the old \texttt{conv2d\_001} over-pragma'd candidate (interval 328)
+(1024), and the old \texttt{conv2d\_001} over-pragma'd candidate (interval 328,
+\texttt{docs/ablations/conv2d\_001\_optimize.json})
 correctly loses to the baseline (191) --- while the proper recipe move now drives
 conv2d to interval 82 under a target (\S\ref{app:scoring:rebaseline}).
 
@@ -147,13 +149,11 @@ The per-task objective is a 5-value enum --- \texttt{speed\_first}, \texttt{area
 alias to \texttt{speed\_first}; unknown/absent $\rightarrow$ default).
 \texttt{interval\_max} scoring alone does not stop a \emph{genuinely faster but huge}
 design from winning on throughput; satisficing throughput to a per-task
-\texttt{throughput\_target} and then minimizing area is what would make the elegant recipe
-(interval 256 / 315 LUT) outrank the LLM blow-up (128 / 13194 LUT) were both offered to
-one loop: with \texttt{throughput\_target}~=~256 both meet the target, so the next key is
-area, and \texttt{area\_score} 0.0071 beats 0.2510. That is a property of the objective
-(\texttt{harpo/candidate.py}) evaluated on the two committed designs rather than an
-observed head-to-head --- the pre-fix blow-up was never regenerated under the corrected
-objective (note~2 of Table~\ref{tab:headline}). The within-run rescoring in
+\texttt{throughput\_target} and then minimizing area is what separates the elegant recipe
+(interval 256 / 315 LUT) from the LLM blow-up (128 / 13194 LUT): at target 256 both meet
+it, so area decides, and \texttt{area\_score} 0.0071 beats 0.2510. This is the objective
+(\texttt{harpo/candidate.py}) applied to two committed designs, not an observed
+head-to-head (note~2 of Table~\ref{tab:headline}); the within-run rescoring in
 \S\ref{app:scoring:cause} is the observed counterpart.
 
 Supporting these, a new \texttt{harpo/area.py} provides a normalized
@@ -217,14 +217,13 @@ speed\_first            & \textbf{19} & 5689 & 14999 & 1.121   & 21.292 \\
 target via the Fix-3 probe (Table~\ref{tab:polybench}). \texttt{gemm} conservatively
 falls back to baseline 2060 (no improvement, baseline kept); \texttt{atax} derives a
 real target of 280 and reaches interval 64 / LUT 3907; \texttt{bicg} derives 162 and
-reaches interval 60 / LUT 3596. One scoping note, since it is easy to read the probe's
-cap as a guarantee: the 2$\times$ \texttt{area\_score} cap governs \emph{target
-derivation} only. In both kernels the design the optimize loop ultimately kept is the
-same array partition the probe had excluded at that cap --- 3.54$\times$ baseline
-\texttt{area\_score} for \texttt{atax}, 4.89$\times$ for \texttt{bicg} (on raw LUT the
-same two designs are only 1.57$\times$ and 1.66$\times$; the growth is DSP-driven,
-12$\rightarrow$96 on \texttt{bicg}). Once the target is set, the satisfice policy
-bounds \emph{throughput}, not area.
+reaches interval 60 / LUT 3596. One scoping note: the 2$\times$ \texttt{area\_score} cap
+governs \emph{target derivation} only, not the optimize loop. In both kernels the loop's
+first accepted candidate is exactly the array partition the probe had rejected at the
+cap, and the design it ultimately keeps is larger still --- 3.54$\times$ baseline
+\texttt{area\_score} for \texttt{atax}, 4.89$\times$ for \texttt{bicg}, though on raw LUT
+only 1.57$\times$ and 1.66$\times$ (the growth is DSP-driven, 12$\rightarrow$96 on
+\texttt{bicg}).
 
 \begin{table}[h]
 \centering\small
@@ -248,7 +247,8 @@ Table~\ref{tab:recipe-vs-llm} is the head-to-head, recipe vs.\ raw LLM under the
 corrected scoring (the four re-baselined LLM arms). On structured-reduction kernels the
 raw LLM over-parallelizes and, under the corrected scoring, \textbf{wins nothing}; the
 precise recipe applies the single unblocking pragma. On kernels the safe recipes cannot
-crack both are null; elsewhere they are comparable. The \texttt{recipe}-before-\texttt{ollama}
+crack both are null; only on \texttt{atax\_001} are the two arms comparable, and there
+the recipe wins marginally. The \texttt{recipe}-before-\texttt{ollama}
 default is what captures the best of both.
 
 \begin{table*}[t]
@@ -271,9 +271,11 @@ LLM-arm re-baselines for the remaining hand-built kernels, and additional PolyBe
 ports, remain future work; the released evidence covers the four head-to-head kernels
 above.
 
-\paragraph{Fairness of the derived target.} The satisfice target in these
-head-to-head rows comes from the Fix-3 probe, which is \emph{recipe-only}
-(\S\ref{app:scoring:fixes}), and that same target then scores both arms. The probe
+\paragraph{Fairness of the derived target.} The satisfice target in the
+\texttt{gemm\_001} and \texttt{atax\_001} rows comes from the Fix-3 probe, which is
+\emph{recipe-only} (\S\ref{app:scoring:fixes}), and that same target then scores both
+arms; \texttt{mac8\_001} (256) and \texttt{matmul\_001} (72) ship hand-set targets, so
+the concern below applies only to the two probe-derived rows. The probe
 is the agent's autonomous fallback when a task ships no target, so using it here
 matches how the agent runs in practice; even so, it lets the recipe arm help define
 the objective the LLM arm is judged against. Two changes would make the comparison

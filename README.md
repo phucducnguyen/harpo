@@ -91,7 +91,7 @@ Regenerate them with [`silicon/run_baseline_impl.tcl`](silicon/) (25,853) and
 python3 scripts/selftest.py                                  # offline parser checks
 python3 -m harpo run    tasks/vadd_001       --stage csim    # -> pass
 python3 -m harpo run    tasks/vadd_buggy_001 --stage csim    # -> functional_fail
-python3 -m harpo repair tasks/vadd_buggy_001 --provider mock,ollama
+python3 -m harpo repair tasks/vadd_buggy_001 --provider ollama
 
 # csynth + the optimize/pipeline loops need Vitis HLS on PATH:
 source <Vitis-install>/2025.2/Vitis/settings64.sh

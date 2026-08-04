@@ -339,11 +339,14 @@ fixes show on two kernels:
 
 Three PolyBench kernels (gemm/atax/bicg, integer 16×16) extend the evidence beyond hand-built
 toys; **all three auto-derive their target via the Fix-3 probe** (gemm conservatively falls
-back to baseline 2060; atax/bicg derive real targets — 280 and 162 — from a probe whose 2×
-area cap governs **target derivation only**. The optimize loop itself is unbounded in area:
-the shipped atax design is 3.54× and bicg 4.89× the baseline `area_score`, and in both cases
-the loop accepted the exact pragma the probe's cap had rejected. Growth is DSP-driven
-(bicg 12→96); on raw LUT the same designs are 1.57× / 1.66×). Head-to-head, recipe vs raw LLM under honest scoring (the four re-baselined LLM
+back to baseline 2060; atax/bicg derive real targets, 280 and 162).
+
+⚠️ The probe's 2× area cap governs **target derivation only** — the optimize loop is
+unbounded in area, and in both kernels its first accepted candidate is the exact pragma the
+cap had rejected. The shipped designs are 3.54× (atax) and 4.89× (bicg) the baseline
+`area_score`, though only 1.57× / 1.66× on raw LUT; the growth is DSP-driven (bicg 12→96).
+
+Head-to-head, recipe vs raw LLM under honest scoring (the four re-baselined LLM
 arms):
 
 | kernel | recipe arm | raw-LLM arm | winner |
@@ -399,7 +402,7 @@ One-liners (from RESULTS.md / README.md):
 
 ```bash
 source ~/tools/Xilinx/2025.2/Vitis/settings64.sh         # for any csynth/optimize/pipeline
-python3 -m harpo repair   tasks/vadd_buggy_001 --provider mock,ollama
+python3 -m harpo repair   tasks/vadd_buggy_001 --provider ollama
 python3 -m harpo optimize tasks/mac8_001       --provider recipe,ollama
 python3 -m harpo pipeline tasks/vadd_buggy_001                       # repair then optimize
 python3 scripts/run_suite.py                              # aggregate runs/ -> SUITE.md + SUITE.csv

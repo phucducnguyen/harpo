@@ -144,8 +144,8 @@ PolyBench target is **auto-derived by the recipe probe** (the canonical table's
 rows: **gemm_001** falls back to the baseline target 2060 (safe single pragmas don't unblock
 its bottleneck → baseline kept, no change); **atax_001** derives target 280 (the probe's 2× area cap rejected the faster
 partition-on-`A` candidate) and then satisfices to **interval 64 / LUT 3907** — at **3.54×
-the baseline `area_score`**, because the cap constrains only the probe, never the optimize
-loop; **bicg_001** derives target 162 and reaches **interval 60 / LUT 3596**, at 4.89×
+the baseline `area_score`**; **bicg_001** derives target 162 and reaches
+**interval 60 / LUT 3596**, at 4.89×
 baseline `area_score` (growth is DSP-driven, 12→96). ⚠️ In both kernels the design the loop
 kept is the very candidate the probe's cap had rejected — the cap governs **target
 derivation only**. Reproduce:
@@ -206,7 +206,7 @@ python3 scripts/selftest_csynth.py     # parse_csynth resource-util% from stored
 (`c[i] = a[i] - b[i]`, should be `+`). Source: `tasks/vadd_buggy_001/src/vadd.cpp`.
 
 ```bash
-python3 -m harpo repair tasks/vadd_buggy_001 --provider mock,ollama
+python3 -m harpo repair tasks/vadd_buggy_001 --provider ollama
 ```
 
 From `runs/vadd_buggy_001/repair_log.json`:

@@ -159,15 +159,15 @@ Ranking proceeds top-down so that correctness dominates QoR:
     \texttt{interval\_max}, then ADP (area $\times$ interval); missing
     candidates are ordered by \texttt{interval\_max} first, then area,
     then ADP. Given no usable target the objective degrades to
-    speed-first with an area tie-break.
+    throughput-first with an area tie-break.
   \item \textbf{Fewer diagnosis steps} breaks any remaining tie.
 \end{enumerate}
 
-Key~2 has a deliberate consequence worth stating plainly: among candidates
-that already meet the target, a \emph{slower} design wins if it is smaller
-(a case pinned by \texttt{tests/test\_objective.py}). Throughput is therefore
-not a universal second key --- and that is exactly what makes the elegant
-recipe outrank the LLM blow-up when both are scored (Sec.~\ref{app:scoring}).
+Key~2 has a deliberate consequence: among candidates that already meet the
+target, a smaller design beats a faster one (pinned by
+\texttt{tests/test\_objective.py}). Throughput is not a universal second key
+--- which is what would rank the elegant recipe above the LLM blow-up
+(Sec.~\ref{app:scoring}).
 
 The other objectives (\texttt{speed\_first}, \texttt{area\_first},
 \texttt{adp}, \texttt{pareto\_report}) reorder these terms. The old
@@ -178,11 +178,10 @@ whose per-loop II improved $4 \rightarrow 1$ while the design
 been restructured, so \texttt{trip\_count} rose $64 \rightarrow 512$ and
 \texttt{latency\_worst} went $260 \rightarrow 518$ with it. A per-loop II
 that improves while the design gets slower is precisely the metric defect
-Fix~1 removes (Sec.~\ref{app:scoring}); the \texttt{interval\_max} metric
-and the per-task objective knob exist because of cases like this one. (That
-run's proposals came from the deterministic \texttt{mock} provider replaying
-a fixture, \texttt{tasks/matmul\_001/mock\_patch.json}, so it is evidence
-about the scoring rule, not about any proposer.)
+Fix~1 removes (Sec.~\ref{app:scoring}). Those proposals came from the
+deterministic \texttt{mock} provider replaying
+\texttt{tasks/matmul\_001/mock\_patch.json}, so this is evidence about the
+score, not about any proposer.
 
 \subsection{The correctness-preserving invariant}\label{app:arch:invariant}
 

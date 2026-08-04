@@ -167,15 +167,19 @@ Target constraints (part/clock/optional resource limits)
 
 \subsection{Threat to validity: csynth estimates are not measurements}\label{app:coverage:implverify}
 
-Every number in this paper is a Vitis HLS csynth estimate. The repository also
+Every QoR number in the tables above is a Vitis HLS csynth estimate. The repository also
 carries a post-route fidelity check (\texttt{optimize --impl-verify 3},
 2026-07-16; records under \texttt{docs/case-study/}): 12 candidates across 4 tasks
 taken through \texttt{export\_design -flow impl} and out-of-context Vivado place
 \& route on the same \texttt{xc7z020clg400-1} at 10\,ns, three of them
 (\texttt{atax\_001}, \texttt{bicg\_001}, \texttt{gemm\_001}) kernels reported here.
 LUT estimates are pessimistic in all 12 cases, by 1.60$\times$--2.73$\times$
-(2.03$\times$--2.46$\times$ among winners). Clock is worse than estimated in 11 of
-12: designs printed here at 144.45\,MHz measure 99.97--109.66\,MHz post-route. Two
+(2.03$\times$--2.46$\times$ among winners). Clock is worse than estimated in 11 of 12:
+the candidates csynth-estimated at 144.45\,MHz measured 100.0--140.7\,MHz post-route,
+and the \texttt{gemm\_001} candidates estimated at 144.68\,MHz measured
+98.4--109.7\,MHz. (The 144.45\,MHz figures printed in Tables~\ref{tab:ppa}
+and~\ref{tab:suite}, for \texttt{mac8\_001} and \texttt{unroll8\_001}, are \emph{not}
+among the measured candidates.) Two
 candidates pass timing on the estimate and miss it after routing ---
 \texttt{gemm\_001} cand\_0001 at 10.168\,ns (the worst degradation, $+3.256$\,ns)
 and \texttt{atax\_001} cand\_0000 at 10.003\,ns. For the latter the defensible
@@ -191,9 +195,10 @@ unordered. Measurement promotes a candidate this paper does not report.
 A 1.6--2.7$\times$ spread does not threaten the direction of the headline area
 result --- a $\approx$42$\times$ gap sits far outside it. It threatens marginal
 verdicts. Sec.~\ref{app:scoring:comparison} calls \texttt{atax\_001}
-``recipe (marginal)'' on an estimated 3907 vs.\ 3994 LUT, a 2.2\% margin ---
-smaller than the measured estimate error on those very designs. That verdict is
-not safe on estimates. HARPO optimizes an estimate ranking, and an estimate
+``recipe (marginal)'' on an estimated 3907 vs.\ 3994 LUT --- and on the
+\texttt{area\_score} the ranking actually consults the margin is 0.3442 vs.\ 0.3458,
+i.e.\ 0.5\%, far smaller than the measured estimate error on those very designs.
+That verdict is not safe on estimates. HARPO optimizes an estimate ranking, and an estimate
 ranking is not the silicon ranking.
 
 The check is narrower than it looks. Even in the measured records, latency
@@ -225,7 +230,6 @@ against a concrete harness interface. In rough priority order:
     \texttt{compile\_error} $\rightarrow$ \texttt{minimal\_compile\_fix} path end-to-end.
 \end{enumerate}
 
-None of the items in this list change the paper's claims, which are scoped to what is
-proven. The fidelity limitation above (Sec.~\ref{app:coverage:implverify}) is the one
-that does bear on them, and is stated there rather than deferred; this section exists
-to state both honestly.
+None of these change the paper's claims, which are scoped to what is proven. The
+fidelity limitation of Sec.~\ref{app:coverage:implverify} is the one that does, and is
+stated there rather than deferred to this list.

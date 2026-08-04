@@ -13,7 +13,7 @@ section with verified citations was added.
   + score + invariant).
 - `appendix/C-scoring.tex` — §: Scoring overhaul + recipe-vs-LLM deep analysis (the
   central contribution).
-- `appendix/B-results.tex` — §: Full measured results incl. token consumption per phase.
+- `appendix/B-results.tex` — §: Full synthesis-estimate results incl. token consumption per phase.
 - `appendix/E-coverage.tex` — §: Task-type coverage and limitations + future work.
 - `appendix/D-reproducibility.tex` — §: Environment, commands, install caveat.
 

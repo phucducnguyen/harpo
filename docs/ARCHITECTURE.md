@@ -170,8 +170,8 @@ The middle PPA terms come from a per-task **objective**, a 5-value enum in
 **`satisfice_then_area`** is the default and the core policy: a candidate that
 **meets the throughput target** (`interval_max ≤ throughput_target`) ranks above
 any that misses it, and among those that meet it the winner is the one with the
-smallest normalized `area_score` (ADP breaks further ties). Candidates that miss
-the target are driven on throughput first. With no usable target (none set and
+smallest normalized `area_score` (then `interval_max`, then ADP). Candidates that
+miss the target are driven on throughput first. With no usable target (none set and
 the probe could not derive one) it degrades to a speed-first ordering with an
 area tiebreak — which is exactly why the **target probe** above runs first, so a
 real target almost always exists. `throughput_target` is an `interval_max`

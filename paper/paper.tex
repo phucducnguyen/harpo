@@ -22,8 +22,12 @@
 \begin{document}
 
 \title{HARPO: A Budget-Aware Repair-Then-Optimize\\Agent for HLS C/C++%
-\thanks{Preprint, July 2026. Source code and the committed canonical evidence behind
-every reported number: \url{https://github.com/phucducnguyen/harpo}.}}
+\thanks{Preprint v2, August 2026. Revises the July 2026 v1
+(\url{https://doi.org/10.5281/zenodo.21366536}): this version withdraws several
+unsupported claims, labels the pre-fix records as such, and adds a post-route
+fidelity check (\S\ref{app:coverage:implverify}). Source code and the committed
+canonical evidence behind every reported number:
+\url{https://github.com/phucducnguyen/harpo}.}}
 
 \author{\IEEEauthorblockN{Phuc (Patrick) Duc Nguyen}\\
 \IEEEauthorblockA{Independent Researcher\\
@@ -94,12 +98,12 @@ decision-making (Sec.~\ref{app:scoring}). The contributions are:
     correctness-before-QoR guarantee (Sec.~\ref{app:arch});
   \item three decision-policy fixes---metric, policy, and autonomy---each motivated by a
     concrete, measured failure and re-baselined on real Vitis (Sec.~\ref{app:scoring});
-  \item an honest, reproducible recipe-vs-LLM ablation showing where a deterministic
+  \item an honest, replayable recipe-vs-LLM ablation showing where a deterministic
     precise-pragma library beats a raw LLM and where it cannot reach
     (Secs.~\ref{app:scoring} and~\ref{app:results});
-  \item full measured results, an honest task-coverage map, and a \$0-cost, local-only
-    reproducibility recipe (Secs.~\ref{app:results}, \ref{app:coverage},
-    and~\ref{app:repro}).
+  \item full results under synthesis estimates, a post-route fidelity check, an
+    honest task-coverage map, and a \$0-cost local-only replay recipe
+    (Secs.~\ref{app:results}, \ref{app:coverage}, and~\ref{app:repro}).
 \end{itemize}
 
 \section{Related Work}
@@ -160,12 +164,11 @@ no amount of prompt engineering fixes that, because the defect is not in the pro
 mechanism but in what the agent is told to want. Scoring throughput on a metric that
 cannot vanish (\texttt{interval\_max}), satisficing throughput to a target before
 minimizing area, and deriving that target with a capped zero-token probe were each
-small changes; together they reverse which of an elegant 315-LUT design and a
-13194-LUT one the objective prefers---a property of the scoring rule
-(\texttt{harpo/candidate.py}), since the 13194-LUT design was produced under the
-pre-fix objective and was not regenerated after the fix. Within a single committed
-pre-fix run the same reversal is directly observed: the old score kept a 13194-LUT
-candidate over a 1092-LUT one at identical throughput. We release the agent, its tasks, and the committed canonical evidence behind
+small changes; together they invert the objective's preference between an elegant
+315-LUT design and a 13194-LUT one---a property of the scoring rule, not a re-run
+(the 13194-LUT design predates the fix). The same reversal is \emph{directly}
+observed within one committed pre-fix run: the old score kept a 13194-LUT candidate
+over a 1092-LUT one at identical throughput. We release the agent, its tasks, and the committed canonical evidence behind
 every number so that both the system and its failure modes can be checked directly.
 
 \begin{thebibliography}{99}

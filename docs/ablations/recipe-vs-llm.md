@@ -71,7 +71,8 @@ both were correctly discarded for no additional score gain.)
 The recipe reaches **II=1 at LUT=315** with a single, surgically scoped pragma and
 **zero LLM tokens**. The raw LLM reaches a **2× faster** design (interval 128 vs
 256; also lower-latency, 129 vs 259), but at **LUT=13194 — roughly 42× the recipe's
-area** (and 36× the baseline's 369 LUT), while spending **34,387 tokens**. For an
+LUT** (and 36× the baseline's 369 LUT; on normalized `area_score` the gap is ~35×),
+while spending **34,387 tokens**. For an
 xc7z020 (53,200 LUT) the recipe sits at 0.6% LUT utilization; the LLM design at
 **24.8%**. The throughput win is real; the failure is that the score let it pay two
 orders of magnitude of area for a factor of two.

@@ -16,9 +16,7 @@ The optimize kernels re-baselined under the current default (\texttt{interval\_m
 throughput with \texttt{satisfice\_then\_area}) are in Sec.~\ref{app:scoring:rebaseline}.
 The before/after table (\S\ref{app:ppa}) and the full suite table
 (\S\ref{app:suite}) instead keep their original numbers under the earlier lexicographic
-objective, and each caption flags them as historical; the raw-LLM row of
-Table~\ref{tab:headline} is the one further pre-fix record, flagged in its own caption.
-Where a historical per-kernel
+objective, and each caption flags them as historical. Where a historical per-kernel
 record disagrees with the canonical evidence table, the canonical table
 (\texttt{docs/ablations/canonical/TABLE.md}) is authoritative.
 
@@ -47,7 +45,10 @@ Cost & \$0 (local model) \\
 \caption{Repair metrics for \texttt{vadd\_buggy\_001}: a one-character functional
 fix found in a single local-LLM call at zero cost. $^{\dagger}$\texttt{prop} counts
 provider \emph{proposals} (here one real LLM call), not tokens; recipe proposals cost
-0 tokens.}
+0 tokens. \textbf{Reproduce with \texttt{--provider ollama}}: the task also ships a
+\texttt{mock\_patch.json} fixture encoding the fix, and the CLI's default provider
+order puts \texttt{mock} first, which reproduces every row here \emph{except} the
+token counts --- at 0 tokens, without calling the LLM (\S\ref{app:repro}).}
 \label{tab:repair}
 \end{table}
 
@@ -65,9 +66,10 @@ faster \emph{and} smaller, and \texttt{unroll8\_001} is the headline latency win
 \texttt{stencil3\_001} the LUT rose (193$\rightarrow$435) and Fmax fell, but II and
 latency both improved; the (then-default) lexicographic score prioritizes II then
 latency over LUT, so the design is correctly accepted under that objective.
-These three fixtures are all 1-D reductions; the loop's behavior on a 2-D nested-loop
-kernel (\texttt{matmul\_001}) under the \emph{current} objective is in
-Sec.~\ref{app:scoring:rebaseline}.
+The loop is not confined to 1-D reductions: Sec.~\ref{app:scoring:rebaseline} reports
+the same recipe arm on the 2-D nested-loop kernel \texttt{matmul\_001}
+(\texttt{interval\_max} 256$\rightarrow$44, real Vitis, 0 tokens) under the current
+objective.
 
 \begin{table}[h]
 \centering

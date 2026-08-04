@@ -36,29 +36,41 @@ the repair, optimize, and pipeline entry points then drive the full flow, and
 # once, before csynth/optimize/pipeline:
 source ~/tools/Xilinx/2025.2/Vitis/settings64.sh
 
+# NOTE: use --provider ollama, NOT the
+# mock,ollama default: vadd_buggy_001 ships a
+# mock_patch.json encoding the fix, so mock-first
+# repairs at 0 tokens and the repair table's
+# LLM numbers will not reproduce.
 python3 -m harpo repair \
-  tasks/vadd_buggy_001 --provider mock,ollama
+  tasks/vadd_buggy_001 --provider ollama
 python3 -m harpo optimize \
   tasks/mac8_001 --provider recipe,ollama
 # repair, then optimize:
 python3 -m harpo pipeline \
-  tasks/vadd_buggy_001
+  tasks/vadd_buggy_001 --repair-provider ollama
 # aggregate runs/ -> SUITE.md + SUITE.csv:
 python3 scripts/run_suite.py
 \end{verbatim}}
 
 The headline ablation compares the recipe arm against the raw-LLM arm on the
-same kernel; each invocation writes its result JSON under
-\texttt{docs/ablations/}:
+same kernel. Each invocation writes its log to \texttt{runs/mac8\_001/}, which is
+gitignored; the committed copies under \texttt{docs/ablations/canonical/} are
+produced by \texttt{scripts/run\_ablation.py}, which drives every kernel/arm pair
+and is what a reader should run to regenerate the evidence base:
 
 {\footnotesize
 \begin{verbatim}
-# the headline ablation
-# (each writes docs/ablations/mac8_001_*.json):
+# the headline ablation, one arm at a time
+# (each writes runs/mac8_001/optimize_log.json):
 python3 -m harpo optimize \
   tasks/mac8_001 --provider recipe
 python3 -m harpo optimize \
   tasks/mac8_001 --provider ollama
+
+# or regenerate the canonical evidence
+# (-> docs/ablations/canonical/*.json, TABLE.md):
+python3 scripts/run_ablation.py
+python3 scripts/ablation_table.py
 \end{verbatim}}
 
 The offline self-tests require neither Vitis nor the LLM; they validate the
