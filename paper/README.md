@@ -21,8 +21,8 @@ section with verified citations was added.
 the order A, C, B, E, D.)
 
 ## How to build — locally, via Docker (no host LaTeX install)
-Atlas has no native `pdflatex`; the paper compiles with the `texlive/texlive:latest`
-Docker image (~4 GB, pulled 2026-07-02 — same pattern as FocusRoast's `swift:latest`):
+No native `pdflatex` is required; the paper compiles with the
+`texlive/texlive:latest` Docker image (~4 GB, pulled 2026-07-02):
 
 ```bash
 cd paper   # from the repo root

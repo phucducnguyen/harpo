@@ -56,7 +56,11 @@ same part/clock) the estimator is 2.4–3.5× pessimistic and the archived desig
 **does place**: 25,853 LUT (48.6%), timing met at 0.010 ns slack, vs the fixed
 design's 8,527 LUT (16.0%) at 0.893 ns slack. The fix still dominates on
 measurement; the "168.7% / fails timing" verdict is real at the *estimate* level
-only. See [`silicon/`](silicon/).
+only. ⚠️ Two measured LUT figures exist for the fixed design and are not
+interchangeable: **8,527** (impl-verify campaign 2026-07-16, `ap_ctrl_none`) and
+**8,596** (silicon-leg campaign 2026-07-15, `s_axilite`) — different builds, not
+repeat runs. Every post-route number here is one P&R run at the default seed.
+See [`silicon/`](silicon/).
 
 The model's one-line fix (move the pragma to the inner loop, `II=1`) **replays
 identically** — same diagnosis, same relocation, bit-identical synthesis results —
@@ -70,9 +74,13 @@ Meanwhile the deterministic recipe provider, which can only *add*
 parallelism, had every proposal correctly rejected by the
 `satisfice_then_area` objective.
 
-Every number above traces to committed, replayable run records in
+Every **csynth** number above traces to committed, replayable run records in
 [`docs/case-study/`](docs/case-study/), each `propose` event tagged with the
-model that produced it.
+model that produced it. ⚠️ The **measured post-route** figures are the exception:
+25,853 and 8,596 come from local Vivado runs whose reports are not committed
+(their headers embed local paths). They are reproducible via
+[`silicon/run_baseline_impl.tcl`](silicon/), and 8,527 does have a committed
+source (`docs/case-study/implverify_lns_mac_001_2026-07-16.json`).
 
 ## Quick start
 
