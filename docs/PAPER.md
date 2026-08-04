@@ -457,9 +457,12 @@ per-experiment JSONs under `docs/ablations/` and `docs/case-study/`.
 
 ### TODO placeholders for the maintainer
 
-- **§3.4 `conv2d_001` row** — all cells TODO. No committed phase log yet; HANDOVER.md
-  flags conv2d as the next breadth kernel. (Also a longer FIR — `fir_001` exists as a
-  fixture but has no committed phase log either.)
+- ~~**§3.4 `conv2d_001` row** — all cells TODO, no committed phase log~~ — resolved
+  2026-08-03: the phase log **is** committed
+  (`docs/ablations/conv2d_001_optimize.json`) and §3.4 carries the populated row
+  (no improvement under the pre-fix objective, mock-provider proposals, 0 tokens).
+  (Still open: a longer FIR — `fir_001` exists as a fixture but has no committed
+  phase log.)
 - No other fabricated numbers: every other quantitative claim is copied verbatim from
   RESULTS.md, recipe-vs-llm.md, GATE0.md, or the README results table.
 - Optional alignment note (not a fabrication): RESULTS.md §5 caveat about the suite

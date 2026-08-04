@@ -52,9 +52,12 @@ minimizes area; and (3)~an \emph{autonomy} fix---a zero-token, capped probe that
 derives the throughput target when a task gives none.
 
 We evaluate HARPO on real Vitis HLS~2025.2 targeting \texttt{xc7z020}, with a
-local free model and a deterministic recipe baseline. Every reported number is
-regenerable from the committed canonical evidence table (\texttt{docs/ablations/canonical/})
-and the scripts that produce it.
+local free model and a deterministic recipe baseline. The corrected-objective
+results are regenerable from the committed canonical evidence table
+(\texttt{docs/ablations/canonical/}) and the scripts that produce it; the
+historical pre-fix ablations are backed by committed per-run JSON under
+\texttt{docs/ablations/}, and the aggregate suite table is regenerated locally
+(\texttt{runs/} is not committed).
 Across the demonstrated suite, 136 unit tests pass and the agent runs at \$0 LLM
 API cost.
 \end{abstract}

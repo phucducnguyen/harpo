@@ -59,8 +59,12 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   tags live: `qwen3.6:35b-a3b-q4_K_M`). **Headline result.** From a **single
   accepted LLM proposal** the model diagnosed the over-parallelization and moved
   the top-level `#pragma HLS PIPELINE` to the inner j-loop as `PIPELINE II=1`.
-  (The run spent `llm_calls: 2` over 2 steps: the winning proposal came first;
-  the second call produced nothing — "no provider produced an optimization".)
+  (The run spent `llm_calls: 2` over 2 steps: the winning proposal came first; the
+  second call returned no usable proposal and the loop stopped with "no provider
+  produced an optimization". ⚠️ Run 1's schema records no reason; the 2026-07-16
+  impl-verify run of this task — same tokens, same `llm_calls: 2`, same single
+  accepted proposal — logs `provider_errors: {"OllamaProvider": "TimeoutError"}` at
+  that point, so the second call likely timed out rather than having nothing to say.)
 
   | | baseline | cand_0001 | |
   |---|---|---|---|
@@ -80,14 +84,16 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   goes from over-capacity-and-fails-timing on xc7z020 to fits-meets-timing-and-40%-
   faster at $0 — smaller AND faster, i.e. the baseline pragma wasn't buying speed,
   only area. ⚠️ Measured post-route the baseline **does place** (25,853 LUT, 48.6%,
-  timing met); the hard failure is estimate-level only — see line 35 and `silicon/`.
+  timing met); the hard failure is estimate-level only — see the *Measured
+  post-route* bullet above and `silicon/README.md`.
   The winning source is preserved verbatim as
   `lns_mac_001_ollama_run1_winner.mac.cpp` (the run logs record events, not
   file contents — without this file the accepted design would live only in
   the gitignored `runs/`).
 
-- **`lns_mac_001_ollama_run2.json` / `_run3.json`** (2026-07-14, LLM-only
-  repeats of run 1, model tags in evidence). ⚠️ Corrected 2026-08-03: these are
+- **`lns_mac_001_ollama_run2.json` / `_run3.json`** (2026-07-14, the two
+  additional committed LLM-only files, model tags in evidence). ⚠️ Corrected
+  2026-08-03: these are
   **byte-identical to `_run1.json`** (all md5 `8d3d5bbd739f61d1c67e37afab4ddb2c`)
   and carry no timestamps or seeds, so the committed evidence cannot distinguish
   three independent runs from one file copied twice. Decoding is greedy

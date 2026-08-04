@@ -154,8 +154,11 @@ the \emph{pre-fix} lexicographic objective. The \texttt{conv2d\_001} optimize ro
 omitted from this table because the locally regenerated \texttt{SUITE.md} left its
 cells as placeholders; its phase log \emph{is} committed
 (\texttt{docs/ablations/conv2d\_001\_optimize.json}) and records a no-improvement
-outcome---baseline kept at \texttt{interval\_max}~191, latency~190, 871~LUT, 903~FF
-over 2 steps. Suite-table caveat: \texttt{run\_suite.py} renders
+outcome under the pre-fix objective---baseline kept at \texttt{interval\_max}~191,
+latency~190, 871~LUT, 903~FF over 2 steps, from \emph{mock-provider} proposals at
+0 tokens, so it carries no LLM evidence. (Under the corrected objective the
+recipe arm does improve this kernel; see \texttt{docs/ablations/canonical/}.)
+Suite-table caveat: \texttt{run\_suite.py} renders
 the latency column from \texttt{latency\_best}, while the per-task analysis uses
 \texttt{latency\_worst}; for these kernels the two coincide.
 

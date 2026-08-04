@@ -50,12 +50,12 @@ as later repaired in a 2026 review pass.
   design as the project itself synthesizes it. The testbench exercises the
   `mac_array` datapath it wraps.
 - **Part = xc7z020clg400-1 @ 10 ns** — HARPO's verified free-tier toolchain.
-  The 2024 report swept Artix/Kintex/Virtex; that sweep has since been
-  reproduced across all five parts —
-  `docs/case-study/lns_mac_001_family_sweep.json`.
-  Upstream's cfg targets xczu9eg; QoR numbers here are not directly comparable
-  to the report's tables (different part, and the report's figures describe the
-  pre-fix datapath).
+  The 2024 report swept Artix/Kintex/Virtex; an **equivalent five-part csynth-
+  estimate sweep** has since been run —
+  `docs/case-study/lns_mac_001_family_sweep.json`. It is not a reproduction of
+  the report's sweep: different tool version (Vitis 2025.2), and it runs the
+  bug-fixed datapath, so the comparison is indicative rather than exact.
+  Upstream's cfg targets xczu9eg.
 - **No `throughput_target`** — deliberately absent so the zero-token recipe
   probe derives one (the paper's Fix 3), exercised here on a real artifact.
 - **Objective `satisfice_then_area`** — the LNS design's entire premise is

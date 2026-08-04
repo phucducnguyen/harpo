@@ -1,9 +1,11 @@
 \section{Reproducibility}\label{app:repro}
 
 Everything in this paper runs on \emph{free, local} infrastructure at \$0 LLM
-cost, and every reported number is regenerable from the committed canonical
-evidence table (\texttt{docs/ablations/canonical/}) and the scripts that
-regenerate it from Vitis output.
+API cost. The corrected-objective results are regenerable from the committed
+canonical evidence table (\texttt{docs/ablations/canonical/}) and the scripts
+that regenerate it from Vitis output; \S\ref{app:results} states which tables
+come instead from committed per-run JSON or from a locally regenerated
+\texttt{runs/}.
 
 \subsection{Environment}
 
@@ -84,7 +86,11 @@ scores. This \texttt{runs/} directory is gitignored (only
 evidence table and per-kernel ablation JSON under
 \texttt{docs/ablations/canonical/} (\texttt{TABLE.md}, \texttt{TABLE.csv},
 \texttt{PARETO.md}, and one \texttt{<task\_id>\_\_\{llm,recipe\}.json} per
-kernel), from which every number in this paper is copied verbatim.
+kernel), together with the per-run ablation and case-study JSON elsewhere under
+\texttt{docs/}. The corrected-objective numbers are copied verbatim from that
+canonical table; the historical pre-fix figures (Table~\ref{tab:headline}) come
+from \texttt{docs/ablations/mac8\_001\_ollama.json}, and the aggregate suite
+table from a locally regenerated \texttt{runs/SUITE.md}.
 Reproduction therefore means: re-run the commands above to regenerate
 \texttt{runs/} locally, then compare the result against the committed
 \texttt{docs/ablations/canonical/} table.

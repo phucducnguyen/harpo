@@ -52,7 +52,8 @@ over-parallelization failure mode this project is about:
 | Correctness | 10k-trial golden-model csim ✔ | re-verified ✔ |
 
 ⚠️ Those are **csynth estimates**. Measured post-route (Vivado, out-of-context,
-same part/clock) the estimator is 2.4–3.5× pessimistic and the archived design
+same part/clock) the estimator is 2.5–3.5× pessimistic on these two designs
+(21,013/8,527 = 2.46 on the fix; 89,773/25,853 = 3.47 on the baseline) and the archived design
 **does place**: 25,853 LUT (48.6%), timing met at 0.010 ns slack, vs the fixed
 design's 8,527 LUT (16.0%) at 0.893 ns slack. The fix still dominates on
 measurement; the "168.7% / fails timing" verdict is real at the *estimate* level
@@ -77,10 +78,11 @@ parallelism, had every proposal correctly rejected by the
 Every **csynth** number above traces to committed, replayable run records in
 [`docs/case-study/`](docs/case-study/), each `propose` event tagged with the
 model that produced it. ⚠️ The **measured post-route** figures are the exception:
-25,853 and 8,596 come from local Vivado runs whose reports are not committed
-(their headers embed local paths). They are reproducible via
-[`silicon/run_baseline_impl.tcl`](silicon/), and 8,527 does have a committed
-source (`docs/case-study/implverify_lns_mac_001_2026-07-16.json`).
+25,853 and 8,596 come from local Vivado runs whose reports are not committed.
+Regenerate them with [`silicon/run_baseline_impl.tcl`](silicon/) (25,853) and
+[`silicon/run_silicon.tcl`](silicon/) (8,596) — they are *different* scripts.
+8,527 does have a committed source
+(`docs/case-study/implverify_lns_mac_001_2026-07-16.json`).
 
 ## Quick start
 
