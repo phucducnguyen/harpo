@@ -127,12 +127,16 @@ def score(cand: Candidate) -> tuple:
             best area-delay product first, then area.
 
         "satisfice_then_area" (default) and "pareto_report":
-            meet a throughput target (interval_max <= throughput_target),
-            THEN minimize area. Among candidates that meet the target, rank by
-            area; candidates that miss the target rank below all that meet it
-            and are driven on throughput first. With no usable target this
-            degrades to a speed_first-style ordering with an area tiebreak (the
-            proper recipe-only target probe is a deferred next step).
+            met target:    (tier, 1, na, iv, nad, -steps)
+            missed target: (tier, 0, iv, na, nad, -steps)
+            no target:     (tier, 1, iv, na, nad, -steps)
+            ``meets`` is a BINARY flag (interval_max <= throughput_target), so
+            every candidate meeting the target outranks every one that misses.
+            Among meeters area decides FIRST -- a slower design wins if it is
+            smaller (pinned by tests/test_objective.py). Throughput is NOT a
+            universal second key here; missers are driven on throughput first.
+            With no usable target this degrades to throughput-first with an
+            area tiebreak; ``probe.py`` derives a target when the task ships none.
 
     Missing metrics sort as 0 (no worse than an unsynthesized peer). ``area_score``
     / ``adp`` returning None likewise contribute 0. All candidates compared by
