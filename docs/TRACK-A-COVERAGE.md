@@ -22,7 +22,7 @@ rework. This is why the engineering freeze still holds.
 
 | Official task type | HARPO mechanism | Status |
 | --- | --- | --- |
-| Functionally correct but **unoptimized** baseline | `run_optimize` (8 hand-built + 3 PolyBench kernels) | ✅ **proven** |
+| Functionally correct but **unoptimized** baseline | `run_optimize` (5 hand-built + 3 PolyBench kernels) | ✅ **proven** |
 | **Fails compilation** | `parser` → `compile_error`; `diagnosis` → `minimal_compile_fix`; repair loop drives it | ⚠️ path exists; **no fixture proves it** (repair fixtures are functional bugs, not compile failures) |
 | **Fails synthesis** | `SYNTHESIS_FAIL` diagnosis class + `parse_csynth`, but `run_repair` runs the **csim (gpp) stage only** | ❌ **gap** — a design that passes csim yet fails csynth is not driven by any repair loop |
 | Compiles but **fails csim** | `run_repair` (vadd_buggy / offbyone / scale_wrongop) | ✅ **proven** |

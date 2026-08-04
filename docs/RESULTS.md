@@ -31,7 +31,7 @@ broken one):
   used/available across LUT/FF/DSP/BRAM, **no per-resource weights** (scarcity emerges
   from the denominators, avoiding double-counting); falls back to a per-part capacity
   table (xc7z020) when the report lacks `avail_*`. `adp = area_score × interval_max`
-  (fallback latency_worst→ii). Code-complete, 106/106 unit tests green.
+  (fallback latency_worst→ii). Code-complete, 136/136 unit tests green.
 
 ## Canonical ablation table (source of truth)
 
@@ -172,7 +172,9 @@ the best of both.
 
 ---
 
-Every number below is pulled from the committed JSON logs under `runs/`, produced
+Every number below is pulled from the run JSON logs under `runs/` (⚠️ `runs/` is
+gitignored — the committed copies of these numbers live in
+`docs/ablations/canonical/`), produced
 with **Vitis HLS 2025.2** (csim via `gpp`, csynth via `vitis_hls`),
 part `xc7z020clg400-1`, clock 10.0 ns. Each result lists the **exact command** that
 regenerates it. The three pillars of the Track-A evidence story are: the **closed-loop
@@ -329,10 +331,13 @@ python3 -m harpo optimize tasks/mac8_001 --provider ollama   # -> docs/ablations
 throughput shows as total interval 128 (vs baseline 1024) — a real, correct win,
 paid for in area. Both arms are functionally correct (re-verified csim).
 
-**Result: ~42× area for comparable throughput** (recipe 315 LUT vs LLM 13194 LUT;
-the LLM is in fact lower-latency, 129 vs 259). The LLM arm was run **3×** and was
-**highly stable** — identical winning candidate and PPA every time — so the
-blow-up is consistent behavior, not a draw.
+**Result: ~42× area for 2× the throughput** (recipe 315 LUT at interval 256 vs LLM
+13194 LUT at interval 128; the LLM is also lower-latency, 129 vs 259). ⚠️ Corrected
+2026-08-03: the earlier "comparable throughput" wording understated what the score
+was buying — the LLM arm is genuinely 2× faster, which makes the area trade the
+point, not a wash. The prior "run 3× / highly stable" claim is withdrawn: the three
+run files are byte-identical copies of one run, so this shows replayability under
+temperature-0 decoding, not run-to-run stability (never measured).
 
 **Honest correction to an earlier hypothesis.** A prior note framed the LLM
 blow-up as an *imprecise* `ARRAY_PARTITION` (missing the partition **type**)

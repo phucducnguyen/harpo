@@ -43,8 +43,8 @@ can improve its rank.
 
 Our central finding is that, in budgeted LLM4HLS, the deeper risk is not merely whether
 the LLM writes \emph{correct} code, but whether the agent optimizes the \emph{right
-hardware objective}. A raw LLM can over-parallelize, reaching comparable throughput at
-order-of-magnitude area cost. We contribute three decision-policy fixes: (1)~a
+hardware objective}. A raw LLM can over-parallelize, buying a 2$\times$ throughput gain
+at order-of-magnitude area cost. We contribute three decision-policy fixes: (1)~a
 \emph{metric} fix that scores throughput on the design \texttt{interval\_max} rather
 than a per-loop initiation interval that can vanish under full unroll; (2)~a
 \emph{policy} fix whose default objective satisfices throughput to a target and then
@@ -55,7 +55,7 @@ We evaluate HARPO on real Vitis HLS~2025.2 targeting \texttt{xc7z020}, with a
 local free model and a deterministic recipe baseline. Every reported number is
 regenerable from the committed canonical evidence table (\texttt{docs/ablations/canonical/})
 and the scripts that produce it.
-Across the demonstrated suite, 106 unit tests pass and the agent runs at \$0 LLM
+Across the demonstrated suite, 136 unit tests pass and the agent runs at \$0 LLM
 API cost.
 \end{abstract}
 
@@ -76,9 +76,9 @@ standalone research.
 
 HARPO is such an agent. Beyond engineering the loop, our work isolates a subtle but
 decisive failure mode: when an LLM is free to add pragmas greedily under a naive score,
-it \emph{over-parallelizes}---on \texttt{mac8} it once reached comparable throughput at
-\textbf{13194~LUT} versus a deterministic recipe's \textbf{315~LUT} (\(\sim\)42\(\times\)),
-both functionally correct. We show this is fundamentally a \emph{scoring} problem, not a
+it \emph{over-parallelizes}---on \texttt{mac8} it once bought a 2\(\times\) throughput
+gain (interval 128 vs.\ 256) at \textbf{13194~LUT} versus a deterministic recipe's
+\textbf{315~LUT} (\(\sim\)42\(\times\)), both functionally correct. We show this is fundamentally a \emph{scoring} problem, not a
 prompting problem, and fix it with three small, named changes to the agent's
 decision-making (Sec.~\ref{app:scoring}). The contributions are:
 \begin{itemize}

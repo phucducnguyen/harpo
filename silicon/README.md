@@ -91,9 +91,12 @@ Consequences, recorded 2026-07-17: the 168.7% csynth estimate was **3.5×
 pessimistic** (vs ~2.5× on the fixed design) — the estimator gap is
 design-dependent and here large enough to flip a resource-overuse verdict.
 Every earlier "cannot place / does not fit" claim in this repo was
-estimate-derived and is superseded by this measurement. The fix still strictly
-dominates measured: 3.0× fewer LUTs (8,527 as-is impl-verify vs 25,853), 40%
-fewer cycles (2,073 vs 3,433), 0.893 ns vs 0.010 ns slack.
+estimate-derived and is superseded by this measurement. The fix still dominates,
+but note the mixed fidelity: **measured** — 3.0× fewer LUTs (8,527 as-is
+impl-verify vs 25,853) and 0.893 ns vs 0.010 ns slack; **estimated** — 40% fewer
+cycles (2,073 vs 3,433, both csynth). Post-route cycle counts were never measured
+for either design (the only measured cycle figure is cosim's 2,979 for the fixed
+design, which includes m_axi traffic).
 
 ## Board kit — PYNQ-Z2 overlay (built 2026-07-15, awaiting board run)
 

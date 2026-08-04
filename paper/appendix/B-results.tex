@@ -150,9 +150,12 @@ tool calls), excluded here because they exercise no LLM.}
 Table~\ref{tab:suite} aggregates every phase log into \texttt{runs/SUITE.md}
 (regenerated locally; \texttt{runs/} is gitignored, and the canonical committed copy
 of these numbers is under \texttt{docs/ablations/canonical/}). These rows are under
-the \emph{pre-fix} lexicographic objective. The \texttt{conv2d\_001} optimize row is omitted: it has
-no committed phase log (all cells are placeholders in the source), so reporting it
-would fabricate measurements. Suite-table caveat: \texttt{run\_suite.py} renders
+the \emph{pre-fix} lexicographic objective. The \texttt{conv2d\_001} optimize row is
+omitted from this table because the locally regenerated \texttt{SUITE.md} left its
+cells as placeholders; its phase log \emph{is} committed
+(\texttt{docs/ablations/conv2d\_001\_optimize.json}) and records a no-improvement
+outcome---baseline kept at \texttt{interval\_max}~191, latency~190, 871~LUT, 903~FF
+over 2 steps. Suite-table caveat: \texttt{run\_suite.py} renders
 the latency column from \texttt{latency\_best}, while the per-task analysis uses
 \texttt{latency\_worst}; for these kernels the two coincide.
 
@@ -173,8 +176,9 @@ Task & Phase & Repaired & Improved & II (base$\rightarrow$best) & Latency (base$
 \caption{Full suite table (\texttt{runs/SUITE.md}). The \texttt{prop} column counts
 provider proposals (recipe or LLM), not LLM tokens---recipe proposals cost 0 tokens
 (see the Tokens column). The \texttt{conv2d\_001}
-optimize row is omitted because it has no phase log (placeholder cells in
-the source); \texttt{vadd\_001} (Gate-0 toolchain proof) has no phase log; the
+optimize row is omitted because \texttt{SUITE.md} rendered placeholder cells for it;
+its committed phase log records a no-improvement outcome;
+\texttt{vadd\_001} (Gate-0 toolchain proof) has no phase log; the
 mock-provider repair fixtures \texttt{vadd\_offbyone\_001} and
 \texttt{scale\_wrongop\_001} are logged in \texttt{SUITE.md} but omitted here
 (deterministic mock patches, 0 tokens---no LLM evidence).}

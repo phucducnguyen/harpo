@@ -40,7 +40,7 @@
 \draw[dashed] (R5.south) -- ++(0,-0.3cm) coordinate (Rb);
 \draw[{Latex[length=1.8mm,width=1.3mm]}-{Latex[length=1.8mm,width=1.3mm]}, dashed]
   (Lb) -- (Rb) node[midway, below, font=\scriptsize, align=center]
-  {\textasciitilde42x area,\\comparable throughput};
+  {\textasciitilde42x area,\\2x throughput};
 
 \end{tikzpicture}
 \caption{Why scoring, not prompting, was load-bearing (\texttt{mac8\_001}). Under the old per-loop-II metric a fully-unrolled design reports II=None, sorted as neutral-best, so the greedy loop rewards over-unrolling to 13194 LUT. Under the corrected metric (design \texttt{interval\_max}) plus the \texttt{satisfice\_then\_area} objective, the elegant single-pragma recipe design (315 LUT) outranks it. Same loop, same LLM; the ranking inverts.}

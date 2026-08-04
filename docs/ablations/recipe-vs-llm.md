@@ -69,11 +69,12 @@ both were correctly discarded for no additional score gain.)
 ## Takeaway (precise, based on the actual numbers)
 
 The recipe reaches **II=1 at LUT=315** with a single, surgically scoped pragma and
-**zero LLM tokens**. The raw LLM reaches a comparable (in fact lower-latency:
-129 vs 259) throughput design, but at **LUT=13194 — roughly 42× the recipe's
+**zero LLM tokens**. The raw LLM reaches a **2× faster** design (interval 128 vs
+256; also lower-latency, 129 vs 259), but at **LUT=13194 — roughly 42× the recipe's
 area** (and 36× the baseline's 369 LUT), while spending **34,387 tokens**. For an
 xc7z020 (53,200 LUT) the recipe sits at 0.6% LUT utilization; the LLM design at
-24%.
+**24.8%**. The throughput win is real; the failure is that the score let it pay two
+orders of magnitude of area for a factor of two.
 
 **Nuance vs. the original hypothesis — reported honestly.** The handover's prior
 observation framed the LLM blow-up as an *imprecise* `ARRAY_PARTITION` (missing
@@ -95,13 +96,14 @@ over-applies parallelism for marginal latency at order-of-magnitude area cost,
 whereas the deterministic recipe applies exactly the one pragma that unblocks
 II=1 and no more.** This is precisely why the optimize default is `recipe,ollama`.
 
-**Variance.** The LLM arm was run **3 times** (`mac8_001_ollama_run1.json`,
-`_run2.json`, `_run3.json`). It was **highly stable**: all three runs converged on
-the identical winning candidate (`cand_0004`), the identical four-pragma stack,
-and the identical PPA (LUT 13194, latency_worst 129, FF 322, 34,387 tokens). Run 1
-is kept as the canonical `mac8_001_ollama.json`. The big-area outcome is therefore
-not a lucky/unlucky draw — it is the LLM's consistent behavior on this kernel
-under the current prompt.
+**Variance — NOT measured.** ⚠️ Corrected 2026-08-03: `mac8_001_ollama_run{1,2,3}.json`
+are **byte-identical to each other and to the canonical `mac8_001_ollama.json`**
+(all md5 `29f1d780463471d407aefe7dd719896d`). The record is one run copied, not
+three independent runs, and it carries no timestamps or seeds. Decoding is greedy
+(temperature 0), so identical output would be determinism by construction even had
+they been genuinely re-run. What is evidenced is **replayability**; run-to-run
+variance on this kernel was never measured, and no stability claim is supported.
+The prior "run 3 times / highly stable / not a lucky draw" wording was unsupported.
 
 ## Follow-up: the area blow-up is a SCORING problem, not a prompting one
 
@@ -127,7 +129,7 @@ II=4 (−4). So the lexicographic score literally **rewards full spatial unrolli
 regardless of interval/latency/area. The prompt can nudge the proposals; it cannot
 override a score that prefers the blow-up.
 
-**Fix — now IMPLEMENTED and re-baselined (code-complete, 106/106 tests green; see the
+**Fix — now IMPLEMENTED and re-baselined (code-complete, 136/136 tests green; see the
 canonical table).** Both halves of the fix have landed and the recipe arm is
 re-baselined on real Vitis; the corrected-scoring numbers are in
 `docs/ablations/canonical/TABLE.md` (the numbers in the tables above remain the
@@ -157,7 +159,8 @@ elegant `mac8_001` design wins and the full-unroll blow-up (interval 3073) is re
 - `mac8_001_recipe.json` — the recipe arm (II=1, LUT=315, 0 tokens).
 - `mac8_001_ollama.json` — the LLM arm, canonical (= run 1; LUT=13194, 34,387 tokens).
 - `mac8_001_ollama_run1.json`, `mac8_001_ollama_run2.json`,
-  `mac8_001_ollama_run3.json` — the three LLM repeats documenting the low variance.
+  `mac8_001_ollama_run3.json` — ⚠️ byte-identical copies of one run (see *Variance*
+  above); they document replayability, **not** low variance.
 - `mac8_001_ollama_postprompt.json` — the post-prompt re-ablation proving the
   blow-up is a scoring problem (accepted interval 3073 > baseline 1024).
 - `matmul_001_optimize.json`, `conv2d_001_optimize.json` — generalization kernels.

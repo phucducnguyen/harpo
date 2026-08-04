@@ -30,8 +30,10 @@ docker run --rm -v "$PWD":/work -w /work texlive/texlive:latest \
   latexmk -pdf -interaction=nonstopmode -halt-on-error paper.tex
 ```
 
-Output: `paper.pdf` (gitignored, regenerable). Verified 2026-07-02: 8 pages, all
-`\ref`/`\cite` resolve, every page visually inspected, no overfull boxes above ~4 pt.
+Output: `paper.pdf` (gitignored, regenerable). Verified 2026-08-03 (v2 + claim
+corrections): 10 pages, all `\ref`/`\cite` resolve, zero errors, zero undefined
+references, two overfull hboxes (1.7 pt and 4.1 pt — both below the ~5 pt
+visual threshold; check `paper.log` after any edit rather than assuming zero).
 Overleaf (free; bundles `IEEEtran`) remains a fallback if you want to edit in a GUI.
 
 ## ⚠️ Verify before submitting

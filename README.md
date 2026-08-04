@@ -1,8 +1,8 @@
 # HARPO
 
-**A budget-aware LLM agent for HLS that repairs C/C++ kernels to correctness, then optimizes PPA — and never trusts a patch it hasn't re-verified.**
+**A budget-aware LLM agent for HLS that repairs C/C++ kernels to correctness, then optimizes QoR — and never trusts a patch it hasn't re-verified.**
 
-![tests](https://img.shields.io/badge/tests-120_passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-136_passing-brightgreen)
 ![deps](https://img.shields.io/badge/dependencies-stdlib_only-blue)
 ![llm](https://img.shields.io/badge/LLM-local_Ollama_·_%240_API-orange)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -22,7 +22,7 @@ flowchart LR
 
 Three rules make it honest:
 
-- **Correctness before PPA.** A design must pass C-simulation before any
+- **Correctness before QoR.** A design must pass C-simulation before any
   synthesis metric counts; a csim+csynth pass always outranks a non-pass.
 - **Strict improvement or rollback.** Every optimization is kept only if it
   re-verifies correct *and* strictly improves a correctness-dominated,
@@ -44,17 +44,27 @@ multiply-accumulate unit from my 2024 MS project
 design's own top-level `#pragma HLS PIPELINE` turns out to be the exact
 over-parallelization failure mode this project is about:
 
-| xc7z020 @ 10 ns | archived 2024 design | after **one** local-LLM call |
+| xc7z020 @ 10 ns | archived 2024 design | after **one accepted** LLM proposal |
 |---|---|---|
-| csynth | fails timing, **168.7%** of the chip's LUTs | **passes** — fits, meets timing |
-| LUT | 89,773 | **21,013** (39.5%) — 4.3× smaller |
+| csynth **estimate** | fails timing, **168.7%** of the chip's LUTs | **passes** — meets timing |
+| LUT (estimate) | 89,773 | **21,013** (39.5%) — 4.3× smaller |
 | Worst latency | 3,433 cycles | **2,073** — 40% faster |
 | Correctness | 10k-trial golden-model csim ✔ | re-verified ✔ |
 
-The model's one-line fix (move the pragma to the inner loop, `II=1`) was
-reproduced **3 out of 3** independent runs, with identical synthesis results,
-by a local `qwen3.6:35b-a3b-q4_K_M` on a single consumer GPU — $0 in API
-cost. On the upstream repo's own larger target (xczu9eg) the archived design
+⚠️ Those are **csynth estimates**. Measured post-route (Vivado, out-of-context,
+same part/clock) the estimator is 2.4–3.5× pessimistic and the archived design
+**does place**: 25,853 LUT (48.6%), timing met at 0.010 ns slack, vs the fixed
+design's 8,527 LUT (16.0%) at 0.893 ns slack. The fix still dominates on
+measurement; the "168.7% / fails timing" verdict is real at the *estimate* level
+only. See [`silicon/`](silicon/).
+
+The model's one-line fix (move the pragma to the inner loop, `II=1`) **replays
+identically** — same diagnosis, same relocation, bit-identical synthesis results —
+under temperature-0 decoding by a local `qwen3.6:35b-a3b-q4_K_M` on a single
+consumer GPU, $0 in API cost. ⚠️ That is replayability, not robustness: the
+committed repeat files are byte-identical copies of one run, so run-to-run
+variance was never measured, and the outcome is prompt-sensitive
+([details](docs/case-study/README.md)). On the upstream repo's own larger target (xczu9eg) the archived design
 *passes* — while silently spending **4.2×** the area of the fixed one.
 Meanwhile the deterministic recipe provider, which can only *add*
 parallelism, had every proposal correctly rejected by the
@@ -98,7 +108,7 @@ Exit codes: `0` pass / repaired / improved · `1` fail / no improvement ·
 | --- | --- |
 | `run <task> --stage {csim,csynth}` | Run **one** stage once; print the parsed report; write evidence. |
 | `repair <task>` | Closed-loop **correctness** repair: csim → diagnose → patch → re-csim, under budget. |
-| `optimize <task>` | **PPA** loop on an already-correct design: propose pragma → re-verify csim → csynth → keep iff score improves. |
+| `optimize <task>` | **QoR** loop on an already-correct design: propose pragma → re-verify csim → csynth → keep iff score improves. |
 | `pipeline <task>` | `repair` then (only if repaired) `optimize`, sharing **one** per-task tool budget. |
 
 ## Scoring — the three fixes
@@ -112,7 +122,7 @@ deliberate fixes keep the agent pointed at the *right hardware objective*:
    reported and monotone; `ii` is diagnostic-only.
 2. **Policy.** A per-task **objective** enum — `speed_first | area_first |
    adp | satisfice_then_area | pareto_report` (default `satisfice_then_area`) —
-   picks the PPA ordering: meet the throughput target, *then* minimize
+   picks the QoR ordering: meet the throughput target, *then* minimize
    normalized area (`area.py`), then ADP. The agent doesn't blindly chase the
    fastest design.
 3. **Autonomy.** When a task gives no throughput target, a recipe-only,
@@ -169,7 +179,7 @@ Highlights (full numbers in the table; the recipe-vs-LLM area lesson in
   `matmul_001` `256→44`).
 - Where no target is given (`atax_001`, `bicg_001`, `lns_mac_001`), the probe
   supplies the ceiling at 0 tokens before the loop runs.
-- **120 unit tests green:** `python3 -m unittest discover -s tests`.
+- **136 unit tests green:** `python3 -m unittest discover -s tests`.
 
 Toolchain was proven via two Gate-0 milestones on Linux with **Vitis HLS
 2025.2** (free on Linux pre-2026.1) — including the install gotcha (the 2025.2

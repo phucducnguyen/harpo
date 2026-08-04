@@ -51,12 +51,15 @@ re-verified csim-correct. The recipe-best move was a single
 partition$\times$2 + \texttt{PIPELINE II=1} + \texttt{UNROLL factor=8}.}
 \end{table}
 
-This is \textbf{$\sim$42$\times$ area for comparable throughput} (recipe 315 LUT vs.\
-LLM 13194 LUT; the LLM is in fact lower-latency, 129 vs.\ 259). For
-\texttt{xc7z020} (53{,}200 LUT) the recipe sits at 0.6\% utilization, the LLM design
-at 24\%. The LLM arm was run \textbf{3$\times$} and was \textbf{highly stable} ---
-identical winning candidate, four-pragma stack, and QoR (LUT 13194, latency 129,
-FF 322, 34{,}387 tokens) every time. The blow-up is consistent behavior, not a draw.
+This is \textbf{$\sim$42$\times$ area for 2$\times$ the throughput} (recipe 315 LUT at
+interval 256 vs.\ LLM 13194 LUT at interval 128; the LLM is also lower-latency, 129
+vs.\ 259). For \texttt{xc7z020} (53{,}200 LUT) the recipe sits at 0.6\% utilization,
+the LLM design at 24.8\%. We note explicitly that the LLM arm's throughput win is
+real: the failure is not that it bought nothing, but that the score let it pay two
+orders of magnitude of area for a factor of two. The committed repeat files for this
+arm (\texttt{\_run1/2/3.json}) are byte-identical to one another, and decoding is
+greedy (temperature 0), so they evidence \emph{replayability} rather than run-to-run
+stability; cross-run variance was not measured.
 
 \subsection{The honest corrected cause: over-parallelization, enabled by the score}\label{app:scoring:cause}
 
@@ -87,7 +90,7 @@ implemented. Fig.~\ref{fig:scoring} shows the ranking flip.
 \subsection{The two fixes, in depth}\label{app:scoring:fixes}
 
 The over-parallelization enabler is \textbf{two distinct defects} with \textbf{two
-distinct fixes}, both implemented and re-baselined on real Vitis (106/106 unit tests
+distinct fixes}, both implemented and re-baselined on real Vitis (136/136 unit tests
 green).
 
 \paragraph{Fix 1 --- metric: throughput is scored on the design \texttt{interval\_max}, not the per-loop \texttt{PipelineII}.}

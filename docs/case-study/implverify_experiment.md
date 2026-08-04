@@ -9,8 +9,8 @@ than the estimates?
 the estimate winner, via an area-ranking reversal at the top (margin caveat
 below).** On the other three
 tasks the winners agree, but the estimate error is large and inconsistent in
-direction on every task: LUT estimates ran ~2.0–2.5x pessimistic (winner
-pairs 2.03–2.46x) while post-route clock came in *worse* than the csynth
+direction on every task: LUT estimates ran **1.60–2.73x** pessimistic across all
+12 measured candidates (winner pairs 2.03–2.46x) while post-route clock came in *worse* than the csynth
 estimate on 11 of the 12 measured candidates (exception: lns_mac cand_0001,
 est 9.897 → measured 9.107 ns) — on atax_001 the baseline that csynth scored
 at 6.923 ns actually **fails 10 ns timing post-route** (10.003 ns).

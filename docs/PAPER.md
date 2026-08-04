@@ -29,8 +29,9 @@ a **local, free** qwen model (Ollama over HTTP) at **$0** LLM cost. On real Viti
 plus four real-Vitis PPA optimizations — repaired a planted bug in 2 steps / 1 LLM call
 / 2400 tokens, drove kernels to **II=1** (up to ~7.8× latency on `unroll8_001`), and
 generalized to a 2-D matmul. Our distinctive finding is that a raw LLM
-**over-parallelizes**: on `mac8_001` it once reached comparable throughput at **13194 LUT
-(~42×** the deterministic recipe's **315 LUT)** for **34,387 tokens** — both correct.
+**over-parallelizes**: on `mac8_001` it once bought **2× the recipe's throughput**
+(interval 128 vs 256) at **13194 LUT (~42×** the deterministic recipe's **315 LUT)**
+for **34,387 tokens** — both correct.
 That ~42× number is, however, a product of the *original* greedy scoring; it is the
 motivating finding, not a current result. HARPO's corrected scoring
 (throughput on the design `interval_max` plus a default `satisfice_then_area` objective)
@@ -114,7 +115,7 @@ csim AND (b) strictly improves the score. Every forked candidate is re-run throu
 candidate is discarded and its metrics are never trusted. This is the structural
 guarantee behind "correctness before PPA": the agent can never trade a wrong-but-fast
 design up the ranking. (Proven by a hermetic test, `tests/test_optimize_safety.py`
-with `tasks/trap_breakscsim_001`; 106 unit tests total, all green — HANDOVER.md.)
+with `tasks/trap_breakscsim_001`; 136 unit tests total, all green.)
 
 ## 2. The recipe library and the recipe-vs-LLM finding
 
@@ -139,11 +140,13 @@ optimize loop, the same kernel `mac8_001`, two providers, real Vitis HLS 2025.2:
 (`ii: null`); throughput shows as total interval 128 (vs baseline 1024) — a real,
 correct throughput win, paid for in area. Both arms re-verified csim-correct.
 
-**~42× area for comparable throughput** (recipe 315 LUT vs LLM 13194 LUT; the LLM is in
-fact lower-latency, 129 vs 259). For `xc7z020` (53,200 LUT) the recipe sits at 0.6%
-utilization, the LLM design at 24%. The LLM arm was run **3×** and was **highly stable**
-— identical winning candidate, four-pragma stack, and PPA (LUT 13194, latency 129, FF
-322, 34,387 tokens) every time. The blow-up is consistent behavior, not a draw.
+**~42× area for 2× the throughput** (recipe 315 LUT at interval 256 vs LLM 13194 LUT at
+interval 128; the LLM is also lower-latency, 129 vs 259). For `xc7z020` (53,200 LUT) the
+recipe sits at 0.6% utilization, the LLM design at **24.8%**. ⚠️ Corrected 2026-08-03:
+"comparable throughput" understated the LLM arm (it is 2× faster), the utilization was
+copied from a truncated `util_lut` field (24 → 24.8%), and the "run 3× / highly stable"
+claim is withdrawn — the three run files are byte-identical copies of one run, so this
+evidences replayability under temperature-0 decoding, not stability.
 
 **Honest cause (corrected from an earlier hypothesis).** A prior note framed the
 blow-up as an *imprecise* `ARRAY_PARTITION` (missing the partition type) defaulting to
@@ -170,7 +173,8 @@ objective `satisfice_then_area` rather than speed-first.
 
 ## 3. Results
 
-All numbers below are from the committed JSON logs under `runs/` and `docs/ablations/`,
+All numbers below are from the run JSON logs under `runs/` (⚠️ gitignored; committed
+copies in `docs/ablations/canonical/`) and `docs/ablations/`,
 produced with **Vitis HLS 2025.2** (csim via `gpp`, csynth via
 `vitis_hls`), part `xc7z020clg400-1`, clock 10.0 ns (GATE0.md: Gate-0a and Gate-0b
 PASSED).
@@ -260,7 +264,7 @@ here is pre-fix only.
 ### 3.5 The scoring overhaul — two fixes, implemented
 
 The over-parallelization enabler (§2) is **two distinct defects** with **two distinct
-fixes**, both implemented and **re-baselined on real Vitis** (106/106 unit tests green; the
+fixes**, both implemented and **re-baselined on real Vitis** (136/136 unit tests green; the
 re-baseline numbers are in §3.6, and the §3.1–§3.4 tables are the *pre-fix* record). The full
 evidence table (21 rows / 8 kernels) and the optional Pareto/ADRS appendix are regenerable via
 `scripts/ablation_table.py` (→ `docs/ablations/canonical/TABLE.md`) and `scripts/pareto_view.py`
@@ -390,8 +394,10 @@ python3 scripts/selftest_csynth.py     # parse_csynth resource-util% from stored
 ```
 
 Every run writes replayable JSON under `runs/<task_id>/` (per-candidate `{csim,csynth}_
-{raw,parsed}.json` + the phase log with budget, tokens, and per-candidate scores), so
-every number in this paper is regenerable from a committed artifact.
+{raw,parsed}.json` + the phase log with budget, tokens, and per-candidate scores).
+⚠️ `runs/` is **gitignored**, so those per-run artifacts are local, not committed;
+the committed record of these numbers is `docs/ablations/canonical/` plus the
+per-experiment JSONs under `docs/ablations/` and `docs/case-study/`.
 
 > **Install gotcha (GATE0.md).** The unified Vitis 2025.2 installer omits the
 > `bin/vitis_hls` launcher; recreate the loader wrapper or `vitis_hls` won't be on PATH
@@ -399,7 +405,7 @@ every number in this paper is regenerable from a committed artifact.
 
 ## 6. Limitations and future work
 
-**Implemented (was the top of this list; now code-complete + re-baselined, 106/106 tests green — §3.5/§3.6):**
+**Implemented (was the top of this list; now code-complete + re-baselined, 136/136 tests green — §3.5/§3.6):**
 
 - **Fix 1 — throughput scored on the design `interval_max`, not the per-loop II.** The
   old score's throughput term was the worst per-loop `PipelineII`; a *fully-unrolled* loop

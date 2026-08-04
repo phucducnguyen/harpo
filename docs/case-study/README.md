@@ -56,9 +56,11 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   recipe-first provider order never let it speak. LLM-only runs follow.
 
 - **`lns_mac_001_ollama_run1.json`** (2026-07-14, LLM-only, per-event model
-  tags live: `qwen3.6:35b-a3b-q4_K_M`). **Headline result.** In ONE local-LLM
-  call the model diagnosed the over-parallelization and moved the top-level
-  `#pragma HLS PIPELINE` to the inner j-loop as `PIPELINE II=1`:
+  tags live: `qwen3.6:35b-a3b-q4_K_M`). **Headline result.** From a **single
+  accepted LLM proposal** the model diagnosed the over-parallelization and moved
+  the top-level `#pragma HLS PIPELINE` to the inner j-loop as `PIPELINE II=1`.
+  (The run spent `llm_calls: 2` over 2 steps: the winning proposal came first;
+  the second call produced nothing — "no provider produced an optimization".)
 
   | | baseline | cand_0001 | |
   |---|---|---|---|
@@ -74,19 +76,28 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   diff of the winner against baseline shows only pragma, comment, and
   whitespace lines (one stale comment removed alongside the moved pragma), so
   csim semantics are unchanged by construction; see the task README's
-  coverage-scope note.) The archived 2024 design goes from does-not-fit-and-fails-
-  timing on xc7z020 to fits-meets-timing-and-40%-faster via one $0 LLM call —
-  smaller AND faster, i.e. the baseline pragma wasn't buying speed, only area.
+  coverage-scope note.) At the **csynth-estimate level** the archived 2024 design
+  goes from over-capacity-and-fails-timing on xc7z020 to fits-meets-timing-and-40%-
+  faster at $0 — smaller AND faster, i.e. the baseline pragma wasn't buying speed,
+  only area. ⚠️ Measured post-route the baseline **does place** (25,853 LUT, 48.6%,
+  timing met); the hard failure is estimate-level only — see line 35 and `silicon/`.
   The winning source is preserved verbatim as
   `lns_mac_001_ollama_run1_winner.mac.cpp` (the run logs record events, not
   file contents — without this file the accepted design would live only in
   the gitignored `runs/`).
 
 - **`lns_mac_001_ollama_run2.json` / `_run3.json`** (2026-07-14, LLM-only
-  repeats of run 1, model tags in evidence). **Reproducibility: 3/3.** All
-  three independent runs produced the SAME diagnosis, the SAME one-line
-  pragma relocation, and bit-identical synthesis results (LUT 21,013,
-  latency 2,073, timing met). The fix is not a lucky sample.
+  repeats of run 1, model tags in evidence). ⚠️ Corrected 2026-08-03: these are
+  **byte-identical to `_run1.json`** (all md5 `8d3d5bbd739f61d1c67e37afab4ddb2c`)
+  and carry no timestamps or seeds, so the committed evidence cannot distinguish
+  three independent runs from one file copied twice. Decoding is greedy
+  (temperature 0), so identical output is determinism by construction. The
+  supported claim is **replayability** — same diagnosis, same one-line pragma
+  relocation, bit-identical synthesis results (LUT 21,013, latency 2,073, timing
+  met) — **not** independence or robustness. The earlier "Reproducibility: 3/3 /
+  three independent runs / not a lucky sample" wording is withdrawn. Run-to-run
+  variance was never measured; the outcome is also prompt-sensitive
+  (`lns_mac_001_prompt_wording_ab.md`).
 
 - **`lns_mac_001_family_sweep.json`** (2026-07-14, `scripts/family_sweep.py`,
   deterministic — no LLM; parallel Vitis instances). Baseline vs the run-1
@@ -100,9 +111,11 @@ File naming: `lns_mac_001_<provider>[_runN].json`.
   | xc7k325t (Kintex-7) | 88,603 (43.5%) | 2,601 | 20,767 (10.2%) | 2,009 |
   | xc7vx485t (Virtex-7) | 88,852 (29.3%) | 2,650 | 20,797 (6.9%) | 2,025 |
 
-  Cross-family reading: the result is **universal** — on every part the fixed
-  design is **4.2–4.3× smaller AND faster**. On the small part the 2024
-  pragma breaks the design outright; on every larger part it "works" — which
+  Cross-family reading: the direction holds on **all five parts tested** — the
+  fixed design is **4.2–4.3× smaller AND faster** everywhere, though the latency
+  gain ranges **7.2–39.6%** across parts (the headline 40% is the xc7z020 number;
+  xczu9eg is the 7.2% low end). On the small part the 2024
+  pragma breaks the design outright at the estimate level; on every larger part it "works" — which
   is why the report's numbers looked fine — while silently spending ~4× the
   LUTs for less performance. The report's three families (Artix/Kintex/
   Virtex) are all covered, including the exact Artix part the upstream
