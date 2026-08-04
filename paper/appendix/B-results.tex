@@ -14,9 +14,11 @@ The numbers below use two different objectives, and the distinction matters. The
 repair demonstration (\S\ref{app:repair}) does not depend on the objective at all.
 The optimize kernels re-baselined under the current default (\texttt{interval\_max}
 throughput with \texttt{satisfice\_then\_area}) are in Sec.~\ref{app:scoring:rebaseline}.
-The before/after tables (\S\ref{app:ppa}, \S\ref{app:matmul}) and the full suite table
+The before/after table (\S\ref{app:ppa}) and the full suite table
 (\S\ref{app:suite}) instead keep their original numbers under the earlier lexicographic
-objective, and each caption flags them as historical. Where a historical per-kernel
+objective, and each caption flags them as historical; the raw-LLM row of
+Table~\ref{tab:headline} is the one further pre-fix record, flagged in its own caption.
+Where a historical per-kernel
 record disagrees with the canonical evidence table, the canonical table
 (\texttt{docs/ablations/canonical/TABLE.md}) is authoritative.
 
@@ -63,6 +65,9 @@ faster \emph{and} smaller, and \texttt{unroll8\_001} is the headline latency win
 \texttt{stencil3\_001} the LUT rose (193$\rightarrow$435) and Fmax fell, but II and
 latency both improved; the (then-default) lexicographic score prioritizes II then
 latency over LUT, so the design is correctly accepted under that objective.
+These three fixtures are all 1-D reductions; the loop's behavior on a 2-D nested-loop
+kernel (\texttt{matmul\_001}) under the \emph{current} objective is in
+Sec.~\ref{app:scoring:rebaseline}.
 
 \begin{table}[h]
 \centering
@@ -82,37 +87,6 @@ tokens. All three kernels reach II=1 via \texttt{ARRAY\_PARTITION cyclic factor=
 dim=1} on \texttt{in}; every accepted candidate re-passed C-simulation before
 synthesis metrics were used.}
 \label{tab:ppa}
-\end{table}
-
-\subsection{Generalization to a 2-D Nested-Loop Kernel (historical, pre-fix objective)}\label{app:matmul}
-
-The 1-D fixtures above are all reductions. \texttt{matmul\_001} (8$\times$8 integer
-matmul, triple nested loop) shows the same loop works on a canonical 2-D HLS kernel,
-here under the \emph{original} lexicographic objective (see
-Sec.~\ref{app:scoring:rebaseline} for the same kernel re-baselined under the current
-\texttt{satisfice\_then\_area} default). Table~\ref{tab:matmul-prefix} reports the
-before $\rightarrow$ after: the loop accepted candidate~1 (II 4$\rightarrow$1, LUT
-706$\rightarrow$573, DSP 6$\rightarrow$3) and rejected the two non-improving
-follow-ups. Honest nuance: \texttt{latency\_worst} \emph{rose} 260$\rightarrow$518
-even as II improved, because the lexicographic score ranks II ahead of latency, so an
-initiation-interval win is taken even at a single-call-latency cost. The optimizer
-generalizes beyond toy reductions and never sacrifices correctness.
-
-\begin{table}[h]
-\centering
-\small
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}lcccccc@{}}
-\toprule
-Task & II & Latency (worst) & LUT & FF & DSP & Fmax \\
-\midrule
-\texttt{matmul\_001} & 4$\rightarrow$1 & 260$\rightarrow$518 & 706$\rightarrow$573 & 579$\rightarrow$612 & 6$\rightarrow$3 & 144.45$\rightarrow$144.68 \\
-\bottomrule
-\end{tabular}}
-\caption{Generalization to a 2-D nested-loop kernel (\texttt{matmul\_001}, 3 steps,
-winning pragmas \texttt{PIPELINE II=1} (inner) + \texttt{ARRAY\_PARTITION cyclic
-factor=N dim=1} on \texttt{B}), under the original lexicographic objective.}
-\label{tab:matmul-prefix}
 \end{table}
 
 \subsection{Token Consumption by Phase}\label{app:tokens}

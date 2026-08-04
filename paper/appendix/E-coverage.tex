@@ -165,6 +165,42 @@ Target constraints (part/clock/optional resource limits)
 \end{tabular}
 \end{table*}
 
+\subsection{Threat to validity: csynth estimates are not measurements}\label{app:coverage:implverify}
+
+Every number in this paper is a Vitis HLS csynth estimate. The repository also
+carries a post-route fidelity check (\texttt{optimize --impl-verify 3},
+2026-07-16; records under \texttt{docs/case-study/}): 12 candidates across 4 tasks
+taken through \texttt{export\_design -flow impl} and out-of-context Vivado place
+\& route on the same \texttt{xc7z020clg400-1} at 10\,ns, three of them
+(\texttt{atax\_001}, \texttt{bicg\_001}, \texttt{gemm\_001}) kernels reported here.
+LUT estimates are pessimistic in all 12 cases, by 1.60$\times$--2.73$\times$
+(2.03$\times$--2.46$\times$ among winners). Clock is worse than estimated in 11 of
+12: designs printed here at 144.45\,MHz measure 99.97--109.66\,MHz post-route. Two
+candidates pass timing on the estimate and miss it after routing ---
+\texttt{gemm\_001} cand\_0001 at 10.168\,ns (the worst degradation, $+3.256$\,ns)
+and \texttt{atax\_001} cand\_0000 at 10.003\,ns. For the latter the defensible
+claim is the $\approx$3\,ns estimate error, not a failing baseline: 0.003\,ns sits
+inside plausible run-to-run resolution, place \& route ran once per candidate at
+the default seed, and that variance was never measured.
+
+Ranking diverges on 1 of 4 tasks: on \texttt{atax\_001} the estimates rank
+cand\_0002 first, measurement cand\_0003. The first-place flip is
+robust (109 LUT, 6.0\%); the 2nd/3rd pair differ by 4 LUT (0.2\%) and are
+unordered. Measurement promotes a candidate this paper does not report.
+
+A 1.6--2.7$\times$ spread does not threaten the direction of the headline area
+result --- a $\approx$42$\times$ gap sits far outside it. It threatens marginal
+verdicts. Sec.~\ref{app:scoring:comparison} calls \texttt{atax\_001}
+``recipe (marginal)'' on an estimated 3907 vs.\ 3994 LUT, a 2.2\% margin ---
+smaller than the measured estimate error on those very designs. That verdict is
+not safe on estimates. HARPO optimizes an estimate ranking, and an estimate
+ranking is not the silicon ranking.
+
+The check is narrower than it looks. Even in the measured records, latency
+and interval keep \texttt{latency\_source} = \texttt{csynth}: post-route cycle
+counts were never measured. Area and timing are checked here; \emph{measured}
+throughput is not.
+
 \subsection{Future work}\label{app:coverage:future}
 
 HARPO calls Vitis directly through its own \texttt{runner}; integrating with an
@@ -189,5 +225,7 @@ against a concrete harness interface. In rough priority order:
     \texttt{compile\_error} $\rightarrow$ \texttt{minimal\_compile\_fix} path end-to-end.
 \end{enumerate}
 
-None of these change the paper's claims, which are scoped to what is proven; this
-section exists to state that coverage honestly.
+None of the items in this list change the paper's claims, which are scoped to what is
+proven. The fidelity limitation above (Sec.~\ref{app:coverage:implverify}) is the one
+that does bear on them, and is stated there rather than deferred; this section exists
+to state both honestly.

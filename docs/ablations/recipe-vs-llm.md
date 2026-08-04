@@ -163,4 +163,7 @@ elegant `mac8_001` design wins and the full-unroll blow-up (interval 3073) is re
   above); they document replayability, **not** low variance.
 - `mac8_001_ollama_postprompt.json` — the post-prompt re-ablation proving the
   blow-up is a scoring problem (accepted interval 3073 > baseline 1024).
-- `matmul_001_optimize.json`, `conv2d_001_optimize.json` — generalization kernels.
+- `matmul_001_optimize.json`, `conv2d_001_optimize.json` — 2-D kernels. ⚠️ Both are
+  **mock-provider fixture replays** (0 tokens, no LLM, no recipe) and are **not**
+  generalization evidence; the matmul one's accepted design is a 2× throughput
+  regression (`interval_max` 256→516). Real 2-D evidence = the canonical recipe rows.

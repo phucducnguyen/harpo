@@ -26,9 +26,10 @@ re-run through csim *before* its synthesis metrics are even read, and kept only 
 **precise-pragma recipe library** placed *ahead of* the LLM. The agent runs entirely on
 a **local, free** qwen model (Ollama over HTTP) at **$0** LLM cost. On real Vitis HLS
 2025.2 (part `xc7z020clg400-1`, 10 ns) the demonstrated suite — one LLM repair
-plus four real-Vitis PPA optimizations — repaired a planted bug in 2 steps / 1 LLM call
-/ 2400 tokens, drove kernels to **II=1** (up to ~7.8× latency on `unroll8_001`), and
-generalized to a 2-D matmul. Our distinctive finding is that a raw LLM
+plus three recipe-driven real-Vitis QoR optimizations — repaired a planted bug in 2 steps
+/ 1 LLM call / 2400 tokens, drove kernels to **II=1** (up to ~7.8× latency on
+`unroll8_001`), and extended to 2-D kernels (`matmul_001`, `conv2d_001`) and three
+PolyBench ports under the corrected scoring. Our distinctive finding is that a raw LLM
 **over-parallelizes**: on `mac8_001` it once bought **2× the recipe's throughput**
 (interval 128 vs 256) at **13194 LUT (~42×** the deterministic recipe's **315 LUT)**
 for **34,387 tokens** — both correct.
@@ -101,11 +102,15 @@ passes; (3) **stop/rollback guard** — refuse another LLM call when the state i
 
 **Score (correctness-dominated).** (1) **correctness tier** — 0 csim
 unknown/fail, 1 csim pass, 2 csim+csynth pass (a tier-2 candidate always outranks a
-tier-1, regardless of PPA); then within a tier the ranking is **throughput on the
-design `interval_max`** (not the per-loop II — that is diagnostic-only), refined by an
-**objective-dependent** secondary order. The default objective is `satisfice_then_area`:
-once a candidate meets the per-task `throughput_target` it is ranked by lowest normalized
-`area_score`, then ADP (area × interval). The other objectives (`speed_first`,
+tier-1, regardless of QoR); then within a tier the QoR ordering is chosen **entirely by
+the objective** — throughput is *not* a universal second key. Under the default
+`satisfice_then_area` the tuple is `(tier, meets, area_score, interval_max, adp, -steps)`,
+where `meets` is a **binary satisfice flag** (`interval_max ≤ throughput_target`); a
+candidate that misses the target is ranked `(tier, meets, interval_max, area_score, adp,
+-steps)` instead — throughput first only while the target is unmet. Throughput is always
+measured on the design `interval_max`, never the per-loop II (diagnostic-only). With no
+usable target the tuple degrades to a speed-first ordering with an area tiebreak.
+The other objectives (`speed_first`,
 `area_first`, `adp`, `pareto_report`) reorder these terms; the old II-first, latency,
 LUT lexicographic order is no longer the live score (see §3.5 for why it was replaced).
 
@@ -128,7 +133,13 @@ first, the LLM only for the tail the catalogue can't reach ("dumbest reliable to
 first").
 
 **The headline ablation** (RESULTS.md §3, `docs/ablations/recipe-vs-llm.md`): the same
-optimize loop, the same kernel `mac8_001`, two providers, real Vitis HLS 2025.2:
+optimize loop, the same kernel `mac8_001`, two providers, real Vitis HLS 2025.2.
+
+> ⚠️ **PRE-FIX RECORD.** The table below was produced under the original greedy objective
+> (per-loop II first, area last), from `docs/ablations/mac8_001_ollama.json` — **not** from
+> `docs/ablations/canonical/`. It is the motivating finding, not current behavior. The
+> current mac8 raw-LLM row is in the canonical table: no improvement, 369-LUT baseline
+> kept, 7207 tokens.
 
 | design | II | latency (worst) | interval | LUT | FF | tokens (P/C/total) | what it emitted |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -140,9 +151,10 @@ optimize loop, the same kernel `mac8_001`, two providers, real Vitis HLS 2025.2:
 (`ii: null`); throughput shows as total interval 128 (vs baseline 1024) — a real,
 correct throughput win, paid for in area. Both arms re-verified csim-correct.
 
-**~42× area for 2× the throughput** (recipe 315 LUT at interval 256 vs LLM 13194 LUT at
-interval 128; the LLM is also lower-latency, 129 vs 259). For `xc7z020` (53,200 LUT) the
-recipe sits at 0.6% utilization, the LLM design at **24.8%**. ⚠️ Corrected 2026-08-03:
+**~42× the LUT for 2× the throughput** (recipe 315 LUT at interval 256 vs LLM 13194 LUT at
+interval 128; the LLM is also lower-latency, 129 vs 259). On the normalized `area_score`
+the ranking actually consults, the gap is **~35×** (0.0071 vs 0.2510). For `xc7z020`
+(53,200 LUT) the recipe sits at 0.6% LUT utilization, the LLM design at **24.8%**. ⚠️ Corrected 2026-08-03:
 "comparable throughput" understated the LLM arm (it is 2× faster), the utilization was
 copied from a truncated `util_lut` field (24 → 24.8%), and the "run 3× / highly stable"
 claim is withdrawn — the three run files are byte-identical copies of one run, so this
@@ -218,16 +230,18 @@ PPA before → after, from each `runs/<task>/optimize_log.json`:
   LUT and FF. (Name is historical; the kernel is a fixed 16-wide inner reduction.)
 
 **Generalization to a 2-D nested-loop kernel** — `matmul_001` (8×8 integer matmul,
-triple-nested loop), real Vitis, evidence in `docs/ablations/matmul_001_optimize.json`:
+triple-nested loop). The generalization evidence is the **canonical recipe row**
+(`docs/ablations/canonical/matmul_001__recipe.json`, real Vitis, `recipe` provider,
+0 tokens): `interval_max` **256 → 44** at target 72, LUT 706 → 3121, accepted under
+`satisfice_then_area` (§3.6).
 
-| task | II | latency (worst) | LUT | FF | DSP | Fmax | steps | winning pragmas |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `matmul_001` | 4 → **1** | 260 → 518 | 706 → **573** | 579 → 612 | 6 → **3** | 144.45 → 144.68 | 3 | `PIPELINE II=1` (inner) + `ARRAY_PARTITION cyclic factor=N dim=1` on `B` |
-
-The loop accepted candidate 1 (II 4→1, LUT 706→573, DSP 6→3) and rejected the two
-non-improving follow-ups. Honest nuance: `latency_worst` **rose** 260→518 even as II
-improved — the lexicographic score ranks II ahead of latency, so an initiation-interval
-win is taken even at single-call-latency cost (see §4).
+⚠️ `docs/ablations/matmul_001_optimize.json` is **not** generalization evidence: every
+proposal in it came from `MockProvider` replaying the hand-written fixture
+`tasks/matmul_001/mock_patch.json` (no LLM, no recipe, 0 tokens), and its accepted design
+is a **2× throughput regression** — `interval_max` 256 → **516**, `latency_worst`
+260 → **518**. The per-loop `ii` 4 → 1 is an artifact of `trip_count` 64 → 512, which is
+exactly the metric defect Fix 1 removes. Retain that file as a mock-provider plumbing
+demo only.
 
 ### 3.3 Token consumption by phase (`runs/SUITE.md`)
 
@@ -282,8 +296,12 @@ evidence table (21 rows / 8 kernels) and the optional Pareto/ADRS appendix are r
   (default), `pareto_report` (`spec.json` `objective`; legacy `throughput`/`latency` alias
   to `speed_first`; unknown/absent → default). `interval_max` scoring alone does not stop
   a *genuinely faster but huge* design from winning on throughput; satisficing throughput
-  to a per-task `throughput_target` and then minimizing area is what makes the elegant
-  recipe (interval 256 / 315 LUT) outrank the LLM blow-up (128 / 13194 LUT).
+  to a per-task `throughput_target` and then minimizing area is what **would** rank the
+  elegant recipe (interval 256 / 315 LUT) above the pre-fix LLM blow-up (128 / 13194 LUT)
+  — a property of the scoring rule, not a re-run result: that design was never regenerated
+  under the corrected objective. The measured post-fix mac8 LLM arm is a **different run**
+  with a different trajectory (`canonical/mac8_001__llm.json`: PIPELINE → no metric change,
+  full UNROLL → interval 3073 discarded; 7207 tokens, baseline kept).
 
 Supporting these, a new `harpo/area.py` provides a normalized `area_score`
 (used/available summed over LUT/FF/DSP/BRAM, no per-resource weights so scarcity is not
@@ -321,8 +339,11 @@ fixes show on two kernels:
 
 Three PolyBench kernels (gemm/atax/bicg, integer 16×16) extend the evidence beyond hand-built
 toys; **all three auto-derive their target via the Fix-3 probe** (gemm conservatively falls
-back to baseline 2060; atax/bicg derive real targets — 280 and 162 — and optimize within a 2×
-area cap). Head-to-head, recipe vs raw LLM under honest scoring (the four re-baselined LLM
+back to baseline 2060; atax/bicg derive real targets — 280 and 162 — from a probe whose 2×
+area cap governs **target derivation only**. The optimize loop itself is unbounded in area:
+the shipped atax design is 3.54× and bicg 4.89× the baseline `area_score`, and in both cases
+the loop accepted the exact pragma the probe's cap had rejected. Growth is DSP-driven
+(bicg 12→96); on raw LUT the same designs are 1.57× / 1.66×). Head-to-head, recipe vs raw LLM under honest scoring (the four re-baselined LLM
 arms):
 
 | kernel | recipe arm | raw-LLM arm | winner |

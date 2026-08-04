@@ -142,9 +142,13 @@ evidence beyond hand-built toys. **All ship with no hand-set `throughput_target`
 PolyBench target is **auto-derived by the recipe probe** (the canonical table's
 `TargetSource` column reads `fallback`/`auto-derived` for these rows). Reading the canonical
 rows: **gemm_001** falls back to the baseline target 2060 (safe single pragmas don't unblock
-its bottleneck → baseline kept, no change); **atax_001** derives target 280 and satisfices to
-**interval 64 / LUT 3907** within the 2× area cap; **bicg_001** derives target 162 and reaches
-**interval 60 / LUT 3596**. Reproduce:
+its bottleneck → baseline kept, no change); **atax_001** derives target 280 (the probe's 2× area cap rejected the faster
+partition-on-`A` candidate) and then satisfices to **interval 64 / LUT 3907** — at **3.54×
+the baseline `area_score`**, because the cap constrains only the probe, never the optimize
+loop; **bicg_001** derives target 162 and reaches **interval 60 / LUT 3596**, at 4.89×
+baseline `area_score` (growth is DSP-driven, 12→96). ⚠️ In both kernels the design the loop
+kept is the very candidate the probe's cap had rejected — the cap governs **target
+derivation only**. Reproduce:
 `python3 -m harpo optimize tasks/{gemm,atax,bicg}_001 --provider recipe`.
 
 ### Recipe vs raw-LLM under the new scoring (LLM-arm re-baseline)
@@ -267,21 +271,21 @@ Notes, grounded in the logs:
 
 ### Generalization to a 2-D nested-loop kernel (`matmul_001`)
 
-The fixtures above are all 1-D reductions. `matmul_001` (8×8 integer matmul,
-triple nested loop) proves the same loop works on a canonical 2-D HLS kernel.
-Real Vitis, evidence in `docs/ablations/matmul_001_optimize.json`:
+The fixtures above are all 1-D reductions. `matmul_001` (8×8 integer matmul, triple
+nested loop) extends the loop to a canonical 2-D HLS kernel. **The generalization
+evidence is the canonical recipe row** (`docs/ablations/canonical/matmul_001__recipe.json`,
+real Vitis, `recipe` provider, 0 tokens): `interval_max` **256 → 44** at target 72,
+LUT 706 → 3121, accepted under `satisfice_then_area`.
 
-| task | II | latency (worst) | LUT | FF | DSP | Fmax | steps | winning pragmas |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `matmul_001` | 4 → **1** | 260 → 518 | 706 → **573** | 579 → 612 | 6 → **3** | 144.45 → 144.68 | 3 | `PIPELINE II=1` (inner) + `ARRAY_PARTITION cyclic factor=N dim=1` on `B` |
-
-The loop accepted candidate 1 (II 4→1, LUT 706→573, DSP 6→3) and **rejected** the
-two non-improving follow-ups. Honest nuance: `latency_worst` **rose** 260→518
-even as II improved — the lexicographic score ranks II ahead of latency, so an
-initiation-interval win is taken even at a single-call-latency cost. That is a
-defensible default for streamed kernels but flags a **future per-task objective
-knob** (throughput- vs latency-oriented). The point stands: the optimizer
-generalizes beyond toy reductions and never sacrifices correctness.
+⚠️ **`docs/ablations/matmul_001_optimize.json` is NOT evidence of generalization and must
+not be cited as such.** Every proposal in it came from `MockProvider` replaying the
+hand-written fixture `tasks/matmul_001/mock_patch.json` — no LLM, no recipe, 0 tokens —
+and the same patch was re-applied twice more, which is what its "two rejected
+non-improving follow-ups" actually were. Its accepted design is a **2× throughput
+regression**: `interval_max` 256 → **516**, `latency_worst` 260 → **518**. The per-loop
+`ii` only "improved" 4 → 1 because `trip_count` went 64 → 512 — which is precisely why
+the design-level `interval_max` metric (Fix 1) is the honest one. Keep the file as a
+mock-provider plumbing demo, nothing more.
 
 ### `conv2d_001` — improves under the current scoring
 
@@ -331,8 +335,10 @@ python3 -m harpo optimize tasks/mac8_001 --provider ollama   # -> docs/ablations
 throughput shows as total interval 128 (vs baseline 1024) — a real, correct win,
 paid for in area. Both arms are functionally correct (re-verified csim).
 
-**Result: ~42× area for 2× the throughput** (recipe 315 LUT at interval 256 vs LLM
-13194 LUT at interval 128; the LLM is also lower-latency, 129 vs 259). ⚠️ Corrected
+**Result: ~42× the LUT for 2× the throughput** (recipe 315 LUT at interval 256 vs LLM
+13194 LUT at interval 128; the LLM is also lower-latency, 129 vs 259). On the normalized
+`area_score` the ranking actually consults, the gap is **~35×** (0.0071 vs 0.2510) — name
+the metric, since the two differ. ⚠️ Corrected
 2026-08-03: the earlier "comparable throughput" wording understated what the score
 was buying — the LLM arm is genuinely 2× faster, which makes the area trade the
 point, not a wash. The prior "run 3× / highly stable" claim is withdrawn: the three

@@ -133,8 +133,8 @@ deliberate fixes keep the agent pointed at the *right hardware objective*:
 2. **Policy.** A per-task **objective** enum — `speed_first | area_first |
    adp | satisfice_then_area | pareto_report` (default `satisfice_then_area`) —
    picks the QoR ordering: meet the throughput target, *then* minimize
-   normalized area (`area.py`), then ADP. The agent doesn't blindly chase the
-   fastest design.
+   normalized area (`area.py`), then `interval_max`, then ADP. The agent doesn't
+   blindly chase the fastest design.
 3. **Autonomy.** When a task gives no throughput target, a recipe-only,
    **0-token**, capped probe (`probe.py`) derives one before the loop runs.
 

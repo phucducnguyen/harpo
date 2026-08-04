@@ -6,8 +6,14 @@ the area blow-up of the LLM arm was ultimately a \emph{scoring} defect rather th
 prompting defect, and how two distinct fixes (plus an autonomy probe) make the
 elegant recipe outrank the LLM under honest scoring. All numbers are copied verbatim
 from the committed canonical evidence under \texttt{docs/ablations/canonical/} (the raw
-\texttt{runs/} tree is gitignored and regenerated locally);
-the canonical 21-row evidence table is \texttt{docs/ablations/canonical/TABLE.md},
+\texttt{runs/} tree is gitignored and regenerated locally), with one deliberate
+exception: figures drawn from the \emph{pre-fix} run record that motivated the overhaul
+(\texttt{docs/ablations/mac8\_001\_ollama.json}) --- the raw-LLM row of
+Table~\ref{tab:headline} and the within-run rescoring in \S\ref{app:scoring:cause}.
+Those are flagged as pre-fix wherever they appear. Normalized \texttt{area\_score}
+values quoted below are recomputed from the stored csynth metrics via
+\texttt{harpo/area.py}; the run logs store raw resource counts, not the score.
+The canonical 21-row evidence table is \texttt{docs/ablations/canonical/TABLE.md},
 regenerable via \texttt{scripts/ablation\_table.py}.
 
 \subsection{The recipe library}\label{app:scoring:recipes}
@@ -30,7 +36,9 @@ Table~\ref{tab:headline} reports the headline ablation
 
 \begin{table}[h]
 \centering\small
-\caption{Headline \texttt{mac8\_001} ablation: recipe vs.\ raw LLM, real Vitis HLS 2025.2.}
+\caption{Headline \texttt{mac8\_001} ablation: recipe vs.\ raw LLM, real Vitis HLS
+2025.2 --- csynth estimates, not post-place-and-route measurements. The
+\texttt{ollama-best} row is a \textbf{historical pre-fix record}; see note~2.}
 \label{tab:headline}
 \begin{tabular}{lrrrrrr}
 \toprule
@@ -38,7 +46,7 @@ design & II & latency & interval & LUT & FF & tokens \\
 \midrule
 baseline      & 4   & 1026 & 1024 & 369        & 153 & --- \\
 recipe-best   & \textbf{1} & 259  & 256  & \textbf{315}   & 126 & \textbf{0} \\
-ollama-best   & n/a$^{1}$ & \textbf{129} & 128  & \textbf{13194} & 322 & \textbf{34387} \\
+ollama-best$^{2}$ & n/a$^{1}$ & \textbf{129} & 128  & \textbf{13194} & 322 & \textbf{34387} \\
 \bottomrule
 \end{tabular}
 
@@ -48,13 +56,26 @@ per-iteration II (\texttt{ii: null}); throughput shows as total interval 128
 (vs.\ baseline 1024) --- a real, correct throughput win, paid for in area. Both arms
 re-verified csim-correct. The recipe-best move was a single
 \texttt{ARRAY\_PARTITION cyclic factor=8 dim=1}; the LLM stacked
-partition$\times$2 + \texttt{PIPELINE II=1} + \texttt{UNROLL factor=8}.}
+partition$\times$2 + \texttt{PIPELINE II=1} + \texttt{UNROLL factor=8}.\par
+$^{2}$ \textbf{Pre-fix provenance.} This row was produced under the \emph{old} score
+(per-loop II, then latency, with area last) --- the defect this section diagnoses ---
+and is preserved in \texttt{docs/ablations/mac8\_001\_ollama.json}, outside
+\texttt{docs/ablations/canonical/}. The baseline and \texttt{recipe-best} rows are
+objective-invariant and reproduce unchanged in the canonical table. Under the
+corrected objective the raw-LLM arm on this kernel improves nothing and keeps the
+369-LUT baseline at 7207 tokens (Table~\ref{tab:recipe-vs-llm}). That is a
+\emph{different run with a different trajectory}, not this one rescored: it stops
+after two rejected candidates when the patience limit trips, and the 13194-LUT design
+was never regenerated post-fix.}
 \end{table}
 
-This is \textbf{$\sim$42$\times$ area for 2$\times$ the throughput} (recipe 315 LUT at
+This is \textbf{$\sim$42$\times$ the LUT for 2$\times$ the throughput} (recipe 315 LUT at
 interval 256 vs.\ LLM 13194 LUT at interval 128; the LLM is also lower-latency, 129
-vs.\ 259). For \texttt{xc7z020} (53{,}200 LUT) the recipe sits at 0.6\% utilization,
-the LLM design at 24.8\%. We note explicitly that the LLM arm's throughput win is
+vs.\ 259). On the normalized \texttt{area\_score} the ranking actually consults
+(\S\ref{app:scoring:fixes}) the gap is $\sim$35$\times$ (0.0071 vs.\ 0.2510); the LUT
+ratio is the larger of the two because this design's FF growth is small against the
+device's FF capacity. For \texttt{xc7z020} (53{,}200 LUT) the recipe sits at 0.6\% LUT
+utilization, the LLM design at 24.8\%. We note explicitly that the LLM arm's throughput win is
 real: the failure is not that it bought nothing, but that the score let it pay two
 orders of magnitude of area for a factor of two. The committed repeat files for this
 arm (\texttt{\_run1/2/3.json}) are byte-identical to one another, and decoding is
@@ -83,7 +104,24 @@ Crucially, a follow-up re-ablation traced the \emph{enabler} of the blow-up to t
 \emph{above} a real II$\geq$1 --- so the loop literally rewarded over-unrolling (it
 even accepted a design with interval 3073 vs.\ the baseline's 1024). Prompt hardening
 alone does not fix this. Both durable fixes (\S\ref{app:scoring:fixes}) are now
-implemented. Fig.~\ref{fig:scoring} shows the ranking flip.
+implemented. Fig.~\ref{fig:scoring} contrasts the two scoring regimes and the ranking
+the corrected objective implies.
+
+The same committed run record also carries a rescoring result that needs no
+cross-run comparison at all, and it is the sharpest evidence we have.
+\texttt{docs/ablations/mac8\_001\_ollama.json} stores every candidate with its csynth
+metrics and its pre-fix score tuple. Two of them share an identical design
+\texttt{interval\_max} of 128: \texttt{cand\_0004} at \textbf{13194~LUT}
+(\texttt{ii: null}) scored $(2,0,-129,-13194,0)$, and \texttt{cand\_0005} at
+\textbf{1092~LUT} (\texttt{ii}~=~4) scored $(2,-4,-131,-1092,0)$. The old score kept
+\texttt{cand\_0004} --- 12$\times$ the LUT and 10.7$\times$ the normalized
+\texttt{area\_score} (0.2510 vs.\ 0.0235) --- for a 1.5\% latency edge (129 vs.\ 131
+cycles) and \emph{no throughput gain whatsoever}, purely because a missing per-loop II
+sorted as neutral and outranked a real \texttt{ii}~=~4. Re-scoring that same realized
+candidate pool under \texttt{interval\_max}~+~\texttt{satisfice\_then\_area} (target
+256) selects \texttt{cand\_0005}. This is a rescoring of one run's own candidates, not
+a re-run: a corrected-objective run would have proposed differently, as the canonical
+LLM arm in fact did (Table~\ref{tab:recipe-vs-llm}).
 
 \input{fig/scoring-evolution.tex}
 
@@ -109,14 +147,21 @@ The per-task objective is a 5-value enum --- \texttt{speed\_first}, \texttt{area
 alias to \texttt{speed\_first}; unknown/absent $\rightarrow$ default).
 \texttt{interval\_max} scoring alone does not stop a \emph{genuinely faster but huge}
 design from winning on throughput; satisficing throughput to a per-task
-\texttt{throughput\_target} and then minimizing area is what makes the elegant recipe
-(interval 256 / 315 LUT) outrank the LLM blow-up (128 / 13194 LUT).
+\texttt{throughput\_target} and then minimizing area is what would make the elegant recipe
+(interval 256 / 315 LUT) outrank the LLM blow-up (128 / 13194 LUT) were both offered to
+one loop: with \texttt{throughput\_target}~=~256 both meet the target, so the next key is
+area, and \texttt{area\_score} 0.0071 beats 0.2510. That is a property of the objective
+(\texttt{harpo/candidate.py}) evaluated on the two committed designs rather than an
+observed head-to-head --- the pre-fix blow-up was never regenerated under the corrected
+objective (note~2 of Table~\ref{tab:headline}). The within-run rescoring in
+\S\ref{app:scoring:cause} is the observed counterpart.
 
 Supporting these, a new \texttt{harpo/area.py} provides a normalized
 \texttt{area\_score} (used/available summed over LUT/FF/DSP/BRAM, with \emph{no
 per-resource weights} so scarcity is not double-counted; per-part fallback for
-xc7z020), \texttt{adp = area\_score $\times$ interval\_max}, \texttt{resource\_growth\_ratio},
-and a \texttt{pareto\_front} helper for the reporting mode. A new per-task
+xc7z020), \texttt{adp = area\_score $\times$ interval\_max}, and two reporting
+helpers not consulted by the ranking (\texttt{resource\_growth\_ratio},
+\texttt{pareto\_front}). A new per-task
 \texttt{throughput\_target} field carries the \texttt{interval\_max} ceiling the
 satisfice policy targets.
 
@@ -172,7 +217,14 @@ speed\_first            & \textbf{19} & 5689 & 14999 & 1.121   & 21.292 \\
 target via the Fix-3 probe (Table~\ref{tab:polybench}). \texttt{gemm} conservatively
 falls back to baseline 2060 (no improvement, baseline kept); \texttt{atax} derives a
 real target of 280 and reaches interval 64 / LUT 3907; \texttt{bicg} derives 162 and
-reaches interval 60 / LUT 3596 --- both optimizing within a 2$\times$ area cap.
+reaches interval 60 / LUT 3596. One scoping note, since it is easy to read the probe's
+cap as a guarantee: the 2$\times$ \texttt{area\_score} cap governs \emph{target
+derivation} only. In both kernels the design the optimize loop ultimately kept is the
+same array partition the probe had excluded at that cap --- 3.54$\times$ baseline
+\texttt{area\_score} for \texttt{atax}, 4.89$\times$ for \texttt{bicg} (on raw LUT the
+same two designs are only 1.57$\times$ and 1.66$\times$; the growth is DSP-driven,
+12$\rightarrow$96 on \texttt{bicg}). Once the target is set, the satisfice policy
+bounds \emph{throughput}, not area.
 
 \begin{table}[h]
 \centering\small

@@ -164,7 +164,7 @@ The middle PPA terms come from a per-task **objective**, a 5-value enum in
 | `speed_first` | `interval_max`, then worst-case latency, then `area_score` |
 | `area_first` | `area_score`, then `interval_max` |
 | `adp` | area-delay product (`adp`), then `area_score` |
-| **`satisfice_then_area`** (default) | meet the throughput target, then minimize `area_score`, then ADP |
+| **`satisfice_then_area`** (default) | meet the throughput target, then minimize `area_score`, then `interval_max`, then ADP |
 | `pareto_report` | same ranking as `satisfice_then_area`; also reports the `pareto_front()` |
 
 **`satisfice_then_area`** is the default and the core policy: a candidate that

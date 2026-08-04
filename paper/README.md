@@ -31,9 +31,11 @@ docker run --rm -v "$PWD":/work -w /work texlive/texlive:latest \
 ```
 
 Output: `paper.pdf` (gitignored, regenerable). Verified 2026-08-03 (v2 + claim
-corrections): 10 pages, all `\ref`/`\cite` resolve, zero errors, zero undefined
-references, two overfull hboxes (1.7 pt and 4.1 pt — both below the ~5 pt
-visual threshold; check `paper.log` after any edit rather than assuming zero).
+corrections + the pre-send audit round): 11 pages, all `\ref`/`\cite` resolve, zero
+errors, zero undefined references, two overfull hboxes (5.9 pt and 4.1 pt).
+⚠️ `paper.log` contains a non-UTF8 byte, so a plain `grep` over it returns **nothing**
+and reads as "clean" — that produced one false all-clear on 2026-08-03. Check it with a
+binary-safe reader (`open(...,'rb').decode('utf-8','replace')`), never bare `grep`.
 Overleaf (free; bundles `IEEEtran`) remains a fallback if you want to edit in a GUI.
 
 ## ⚠️ Verify before submitting
@@ -42,7 +44,12 @@ Overleaf (free; bundles `IEEEtran`) remains a fallback if you want to edit in a 
   strong post-release wording. If the repo ever moves, update both.
 - **Numbers:** every quantitative value is copied from `docs/ablations/canonical/TABLE.md`
   (the single source of truth). If results change, regenerate that table and re-sync — do
-  not hand-edit numbers in the `.tex`.
+  not hand-edit numbers in the `.tex`. ⚠️ Two documented exceptions, both flagged in the
+  text: figures from the **pre-fix** record `docs/ablations/mac8_001_ollama.json`
+  (Table I's raw-LLM row + the within-run rescoring), and `area_score` values, which are
+  recomputed via `harpo/area.py` because the logs store raw counts, not the score.
+  Any *new* exception must be flagged at point of use, or the "copied verbatim" claim in
+  `C-scoring.tex` becomes false.
 - **Citations:** all bibliography entries were verified against the arXiv API
   (titles + full author lists) on 2026-07-02. If you add one, verify it the same way —
   never cite from memory.

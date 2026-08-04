@@ -149,23 +149,40 @@ Ranking proceeds top-down so that correctness dominates QoR:
   \item \textbf{Correctness tier} --- 0: csim unknown/fail; 1: csim
     pass; 2: csim+csynth pass. A tier-2 candidate always outranks a
     tier-1, regardless of QoR.
-  \item \textbf{Throughput on the design \texttt{interval\_max}} (within
-    a tier) --- \emph{not} the per-loop II, which is diagnostic-only.
-  \item \textbf{Objective-dependent secondary order.} The default
-    objective is \texttt{satisfice\_then\_area}: once a candidate meets
-    the per-task \texttt{throughput\_target} it is ranked by lowest
-    normalized \texttt{area\_score}, then ADP (area $\times$ interval).
+  \item \textbf{Objective-dependent order} (within a tier). Under the
+    default \texttt{satisfice\_then\_area} the next key is a binary
+    \emph{satisfice flag}: any candidate meeting the per-task
+    \texttt{throughput\_target} on the design \texttt{interval\_max}
+    (\emph{not} the per-loop II, which is diagnostic-only) outranks
+    every candidate that misses it. Meeting candidates are then ordered
+    by lowest normalized \texttt{area\_score}, then
+    \texttt{interval\_max}, then ADP (area $\times$ interval); missing
+    candidates are ordered by \texttt{interval\_max} first, then area,
+    then ADP. Given no usable target the objective degrades to
+    speed-first with an area tie-break.
+  \item \textbf{Fewer diagnosis steps} breaks any remaining tie.
 \end{enumerate}
+
+Key~2 has a deliberate consequence worth stating plainly: among candidates
+that already meet the target, a \emph{slower} design wins if it is smaller
+(a case pinned by \texttt{tests/test\_objective.py}). Throughput is therefore
+not a universal second key --- and that is exactly what makes the elegant
+recipe outrank the LLM blow-up when both are scored (Sec.~\ref{app:scoring}).
 
 The other objectives (\texttt{speed\_first}, \texttt{area\_first},
 \texttt{adp}, \texttt{pareto\_report}) reorder these terms. The old
-II-first, latency, LUT lexicographic order is no longer the live score;
-ranking II ahead of latency is the right default for
-streamed/throughput kernels but can \emph{raise single-call latency}
-(on \texttt{matmul\_001}, \texttt{latency\_worst} rose
-$260 \rightarrow 518$ even as II improved $4 \rightarrow 1$, because the
-loop greedily takes the initiation-interval win), which is why the
-per-task objective knob exists.
+II-first, latency, LUT lexicographic order is no longer the live score,
+and \texttt{matmul\_001} shows why. Under it the loop accepted a candidate
+whose per-loop II improved $4 \rightarrow 1$ while the design
+\texttt{interval\_max} \emph{doubled}, $256 \rightarrow 516$: the loop had
+been restructured, so \texttt{trip\_count} rose $64 \rightarrow 512$ and
+\texttt{latency\_worst} went $260 \rightarrow 518$ with it. A per-loop II
+that improves while the design gets slower is precisely the metric defect
+Fix~1 removes (Sec.~\ref{app:scoring}); the \texttt{interval\_max} metric
+and the per-task objective knob exist because of cases like this one. (That
+run's proposals came from the deterministic \texttt{mock} provider replaying
+a fixture, \texttt{tasks/matmul\_001/mock\_patch.json}, so it is evidence
+about the scoring rule, not about any proposer.)
 
 \subsection{The correctness-preserving invariant}\label{app:arch:invariant}
 
