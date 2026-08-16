@@ -171,11 +171,14 @@ are the record. The honest gradient:
 - **atax_001 — comparable; no safe winner.** Recipe interval 64 / LUT 3907 / ADP 22.0 vs raw
   LLM interval 81 / LUT 3994 / ADP 28.0 — both meet the target. ⚠️ These are **csynth
   estimates**, and the 0.47% area margin is orders of magnitude below the 1.60–2.73×
-  estimate error measured in `docs/case-study/implverify_*.json`. Post-route
-  (`implverify_atax_001_2026-07-16.json`) the ordering inverts: 3907→1923, 3994→1927,
-  and the candidate this loop **rejected** on estimated area measures 1814 LUT at
-  interval 50 — smaller *and* faster than the design shipped. Do not read a winner
-  off this row.
+  estimate error measured in `docs/case-study/implverify_*.json` — so no winner can be
+  read off this row. ⚠️ The post-route campaign
+  (`implverify_atax_001_2026-07-16.json`) implemented **four recipe-arm candidates and
+  no LLM candidate**, so it does not adjudicate this comparison. What it shows is
+  *within* the recipe arm: 3907→1923 and 3994→1927 (order preserved, 4 LUT apart and
+  unordered), while the candidate this loop **rejected** on estimated area measures
+  **1814 LUT** — the smallest of the pool. The first-place flip is the robust part
+  (109 LUT, 6.0%).
 
 Stated honestly: on the structured-reduction kernels (mac8, matmul) the raw LLM
 **over-parallelizes and now wins nothing** under honest scoring, while the precise recipe

@@ -130,7 +130,7 @@ II=4 (−4). So the lexicographic score literally **rewards full spatial unrolli
 regardless of interval/latency/area. The prompt can nudge the proposals; it cannot
 override a score that prefers the blow-up.
 
-**Fix — now IMPLEMENTED and re-baselined (code-complete, 136/136 tests green; see the
+**Fix — now IMPLEMENTED and re-baselined (code-complete, 140/140 tests green; see the
 canonical table).** Both halves of the fix have landed and the recipe arm is
 re-baselined on real Vitis; the corrected-scoring numbers are in
 `docs/ablations/canonical/TABLE.md` (the numbers in the tables above remain the

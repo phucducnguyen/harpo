@@ -28,7 +28,7 @@ Run::
     python3 scripts/run_ablation.py                       # full matrix
     python3 scripts/run_ablation.py --only matmul_001
     python3 scripts/run_ablation.py --arms recipe,speed_first
-    python3 scripts/run_ablation.py --skip-existing
+    python3 scripts/run_ablation.py --overwrite   # REPLACE committed evidence
 """
 
 from __future__ import annotations
@@ -113,8 +113,13 @@ def _summary_line(task_id: str, arm: str, result: dict) -> str:
             f"improved={result.get('improved')}")
 
 
-def run_arm(task_id: str, arm: str, *, overwrite: bool) -> bool:
-    """Run one (task, arm); write its log JSON. Returns True on a written log.
+def run_arm(task_id: str, arm: str, *, overwrite: bool) -> str:
+    """Run one (task, arm); write its log JSON.
+
+    Returns "written" | "skipped" | "failed". ⚠️ These are THREE verdicts, not
+    two: leaving committed evidence alone is the correct default outcome, and
+    collapsing it into "not written" made the documented regeneration command
+    exit 1 on every clean checkout.
 
     Robust: any failure (exception, tool_unavailable surfaced as a thrown error)
     is logged as a warning and the matrix continues.
@@ -129,7 +134,7 @@ def run_arm(task_id: str, arm: str, *, overwrite: bool) -> bool:
     if out_path.exists() and not overwrite:
         print(f"skip (committed evidence exists): {task_id} {arm} -> "
               f"{out_path.name}  [--overwrite to replace]")
-        return False
+        return "skipped"
 
     names = ARMS[arm][0]
     try:
@@ -141,19 +146,19 @@ def run_arm(task_id: str, arm: str, *, overwrite: bool) -> bool:
             print(f"REFUSED: {task_id} {arm} produced no baseline synthesis "
                   f"metrics (Vitis unavailable?) — {out_path.name} left "
                   f"untouched", file=sys.stderr)
-            return False
+            return "failed"
         # Strip the local log_path (machine-specific) before persisting.
         to_write = {k: v for k, v in result.items() if k != "log_path"}
         CANONICAL_DIR.mkdir(parents=True, exist_ok=True)
         out_path.write_text(json.dumps(to_write, indent=2))
         print(_summary_line(task_id, arm, result))
         print(f"  wrote {out_path}")
-        return True
+        return "written"
     except Exception as exc:  # noqa: BLE001 — one arm must never kill the matrix
         print(f"WARNING: {task_id} {arm} failed: {type(exc).__name__}: {exc}",
               file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        return False
+        return "failed"
 
 
 def main(argv=None) -> int:
@@ -186,15 +191,19 @@ def main(argv=None) -> int:
         return 1
 
     print(f"=== ablation matrix: {len(work)} run(s) -> {CANONICAL_DIR} ===")
-    written = 0
+    tally = {"written": 0, "skipped": 0, "failed": 0}
     for task_id, arm in work:
-        if run_arm(task_id, arm, overwrite=args.overwrite):
-            written += 1
-    print(f"=== done: {written}/{len(work)} arm(s) written ===")
-    if written < len(work):
-        # A partial matrix must not exit 0 — the old behaviour reported success
-        # to a reader whose whole run had failed for want of Vitis.
-        print(f"=== {len(work) - written} arm(s) not written ===", file=sys.stderr)
+        tally[run_arm(task_id, arm, overwrite=args.overwrite)] += 1
+    print(f"=== done: {tally['written']} written, {tally['skipped']} skipped "
+          f"(evidence present), {tally['failed']} failed, of {len(work)} arm(s) ===")
+    if tally["skipped"] and not tally["written"] and not tally["failed"]:
+        print("=== nothing to do: every selected arm already has committed "
+              "evidence. Pass --overwrite to regenerate it. ===")
+    if tally["failed"]:
+        # Only a genuine failure is nonzero. A skip is the safe default outcome,
+        # not an error — the previous version exited 1 on a clean checkout and
+        # left the reproducibility appendix with no working command.
+        print(f"=== {tally['failed']} arm(s) FAILED ===", file=sys.stderr)
         return 1
     return 0
 

@@ -151,7 +151,7 @@ Two terms are fixed at the ends of every tuple:
 **Throughput is scored on `interval_max`, the design-level initiation interval —
 NOT per-loop `ii`.** A fully-unrolled loop reports `ii = None`, which would sort
 as 0 and *spuriously beat* a real `ii ≥ 1` (rewarding over-unrolling, e.g.
-`interval_max 3073` beating a `1024` baseline). `interval_max` is always reported
+`interval_max 3073` beating a `1024` baseline). `interval_max` is reported whenever Vitis emits the overall-latency block (a candidate lacking it ranks BELOW every candidate that measured one)
 and monotone, so it avoids that trap; per-loop `ii` is kept in the metrics as
 **diagnostic data only** and is never the primary throughput term.
 

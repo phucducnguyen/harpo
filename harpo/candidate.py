@@ -108,7 +108,8 @@ def score(cand: Candidate) -> tuple:
     knob (``cand.objective``) selects the ordering.
 
     THROUGHPUT IS SCORED ON ``interval_max`` (the design-level initiation
-    interval, always reported), NOT per-loop ``ii``. ``ii`` is kept in
+    interval, present whenever Vitis emits the overall-latency block), NOT
+    per-loop ``ii``. ``ii`` is kept in
     csynth_metrics as diagnostic data only and is never the primary throughput
     term — a fully-unrolled loop reports ``ii = None``, which would sort as 0
     and spuriously BEAT a real ``ii >= 1``, once rewarding over-unrolling
@@ -130,6 +131,8 @@ def score(cand: Candidate) -> tuple:
             met target:    (tier, 1, na, iv, nad, -steps)
             missed target: (tier, 0, iv, na, nad, -steps)
             no target:     (tier, 1, iv, na, nad, -steps)
+            interval UNKNOWN: (tier, -1, _MISSING, na, nad, -steps) -- ranks below
+                           both meeters and missers; it measured nothing.
             ``meets`` is a BINARY flag (interval_max <= throughput_target), so
             every candidate meeting the target outranks every one that misses.
             Among meeters area decides FIRST -- a slower design wins if it is
@@ -138,8 +141,9 @@ def score(cand: Candidate) -> tuple:
             With no usable target this degrades to throughput-first with an
             area tiebreak; ``probe.py`` derives a target when the task ships none.
 
-    Missing metrics sort as 0 (no worse than an unsynthesized peer). ``area_score``
-    / ``adp`` returning None likewise contribute 0. All candidates compared by
+    Missing metrics sort WORST (``_MISSING``), never as 0 -- an absent metric must
+    not outrank a measured one. ``area_score`` / ``adp`` returning None likewise
+    contribute ``_MISSING``. All candidates compared by
     ``best()`` share the same objective (it comes from the task), so tuple
     lengths are consistent within a run; each branch still uses a fixed length.
     """
@@ -155,7 +159,7 @@ def score_measured(cand: Candidate) -> tuple:
     rung's measurements, so a winner picked among verified candidates compares
     at ONE fidelity. Never cached on ``cand.score`` (that stays the estimate
     score) and never used mid-loop — exploration stays on cheap estimates.
-    Candidates without impl_metrics score as all-missing (0s); callers must
+    Candidates without impl_metrics score as all-missing (``_MISSING``); callers must
     only compare candidates that were actually verified.
     """
     return _score_from(cand, cand.impl_metrics or {})

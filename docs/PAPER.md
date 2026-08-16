@@ -360,7 +360,7 @@ arms):
 | mac8_001 | interval 256 / LUT 315 | no improvement (full-unroll interval 3073 discarded) | **recipe** |
 | matmul_001 | interval 44 / LUT 3121 *(satisfice, target 72)* | no improvement (no candidate meets target) | **recipe** |
 | gemm_001 | no improvement (probe fallback, target 2060) | no improvement | tie (both null) |
-| atax_001 | interval 64 / LUT 3907 / ADP 22.0 | interval 81 / LUT 3994 / ADP 28.0 | recipe (marginal) |
+| atax_001 | interval 64 / LUT 3907 / ADP 22.0 | interval 81 / LUT 3994 / ADP 28.0 | **no ordering** (withdrawn — 5 FF / 0.46% apart, far inside the estimate error) |
 
 On structured-reduction kernels the raw LLM over-parallelizes and, under the corrected
 scoring, **wins nothing**; the precise recipe applies the single unblocking pragma. On

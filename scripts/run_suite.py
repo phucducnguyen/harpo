@@ -320,9 +320,16 @@ def run_harpo(task_id, mode):
     except OSError as e:
         print("[run] failed to launch for {}: {}".format(task_id, e), file=sys.stderr)
         return False
-    if rc != 0:
-        print("[run] {} exited {}".format(task_id, rc), file=sys.stderr)
+    # ⚠️ The CLI returns 1 for a legitimate "no improvement / not repaired" and 2
+    # for tool-unavailable. Treating 1 as a failed regeneration made this refuse to
+    # aggregate on any suite containing an unimproved task -- conv2d_001 is one, by
+    # design. Only >=2 (or a negative signal) is an actual failure to run.
+    if rc >= 2 or rc < 0:
+        print("[run] {} FAILED to run (exit {})".format(task_id, rc), file=sys.stderr)
         return False
+    if rc == 1:
+        print("[run] {} ran; reported no improvement/not repaired".format(task_id),
+              file=sys.stderr)
     return True
 
 

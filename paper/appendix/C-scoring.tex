@@ -251,16 +251,25 @@ corrected scoring (the four re-baselined LLM arms). On structured-reduction kern
 raw LLM over-parallelizes and, under the corrected scoring, \textbf{wins nothing}; the
 precise recipe applies the single unblocking pragma. On kernels the safe recipes cannot
 crack both are null; only on \texttt{atax\_001} are the two arms comparable, and
-there we report \emph{no ordering}. The two designs differ by 4 FF out of 5591 ---
-the same partitioning at a different factor --- and the 0.47\% area margin lies two
-orders of magnitude inside the 1.60--2.73$\times$ estimate error measured in
+there we report \emph{no ordering}. The two arm winners differ by 5 FF out of 5591
+(5596 vs.\ 5591) and by 0.46\% in \texttt{area\_score} --- a margin two orders of
+magnitude inside the 1.60--2.73$\times$ LUT estimate error reported in
 Appendix~\ref{app:coverage}. We therefore withdraw the marginal recipe win reported
-previously. Post-route measurement of this pool inverts the ordering entirely: the
-candidate our objective \emph{rejected} on estimated area (4068 LUT estimated)
-measures 1814 LUT at interval 50 --- the smallest \emph{and} fastest of the three.
-On the single kernel where we obtained ground truth, area-driven satisficing on
-estimates selected against the best measured design. We cannot separate a limitation
-of ranking-on-estimates from a limitation of the satisfice policy with one kernel.
+previously; an estimate gap smaller than the estimator's own error supports no
+ordering.
+
+\paragraph{A separate, within-arm result.} Our post-route campaign implemented four
+\texttt{atax\_001} candidates, and \emph{all four were proposed by the recipe
+provider}; the raw-LLM arm's design was never implemented. That evidence therefore
+bears on the objective, not on the head-to-head. Within the recipe arm, the candidate
+the objective \emph{rejected} on estimated area (4068 LUT estimated) measures 1814
+LUT post-route, the smallest of the pool, and carries the lowest csynth interval of
+the three. The first-place flip is robust (109 LUT, 6.0\%); the second- and
+third-placed pair differ post-route by 4 LUT (0.2\%) and are unordered, so the
+ranking does not invert wholesale. The finding is that area-driven satisficing on
+csynth estimates selected against the best measured design on the one kernel where we
+obtained ground truth. We cannot separate a limitation of ranking-on-estimates from a
+limitation of the satisfice policy with a single kernel.
 The \texttt{recipe}-before-\texttt{ollama} default is what captures the best of both.
 
 \begin{table*}[t]
@@ -280,9 +289,9 @@ atax\_001   & interval 64 / LUT 3907 / ADP 22.0               & interval 81 / LU
 
 \smallskip
 \raggedright\footnotesize $^{\dagger}$Withdrawn from ``recipe (marginal)''. The
-two designs differ by 4 FF out of 5591 and the 0.47\% area margin is far inside
-the measured estimate error; post-route the ordering inverts. See the discussion
-above.
+two arm winners differ by 5 FF out of 5591 and by 0.46\% in \texttt{area\_score},
+far inside the measured estimate error. The post-route campaign implemented only
+recipe-arm candidates and so does not adjudicate this row; see the discussion above.
 \end{table*}
 
 LLM-arm re-baselines for the remaining hand-built kernels, and additional PolyBench
@@ -298,7 +307,7 @@ arms. \textbf{The concern is not confined to those rows.} On
 attains, so whether a target is hand-set or probe-derived, its ceiling is defined by
 the deterministic arm that is then evaluated against it. This is load-bearing for the
 headline: preferring the 315-LUT recipe design over the 13{,}194-LUT LLM design is
-conditional on a ceiling of 256, and inverts for any target below 255. We report that
+conditional on a ceiling of 256, and inverts for any target below 256. We report that
 comparison as conditional on a recipe-attainable target, not as an unconditional
 ranking. Nor can the probe escape it --- the probe is recipe-only by construction, so
 no target available inside this design is neutral between the arms. Deriving a target
