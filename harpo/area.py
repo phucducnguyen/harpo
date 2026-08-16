@@ -118,16 +118,16 @@ def area_score(metrics: dict | None, *, caps: dict | None = None) -> float | Non
 
 
 def _throughput(metrics: dict) -> float | None:
-    """Honest throughput: interval_max preferred, then latency_worst, then ii.
+    """Design-level ``interval_max``, or None. No fallback chain.
 
-    interval_max is the truthful steady-state interval; ii can be misreported as
-    None for fully-unrolled loops (the known scoring trap), so it is last.
+    ⚠️ This used to fall back interval_max -> latency_worst -> ii. Since ADP is
+    the FIRST ranking key under objective ``adp`` and the last key in every
+    satisfice branch, that fallback made per-loop ``ii`` a live ranking input --
+    contradicting both the documented formula (adp = area_score x interval_max)
+    and the "ii is diagnostic-only" guarantee. Absent interval_max now yields
+    None, which the scorer sorts below every measured candidate.
     """
-    for key in ("interval_max", "latency_worst", "ii"):
-        v = _num(metrics.get(key))
-        if v is not None:
-            return v
-    return None
+    return _num(metrics.get("interval_max"))
 
 
 def adp(metrics: dict | None, *, caps: dict | None = None) -> float | None:

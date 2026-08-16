@@ -300,16 +300,30 @@ def write_csv(rows, path):
 
 
 def run_harpo(task_id, mode):
-    """Shell out to the harpo CLI to (re)generate logs. NOT run by default."""
+    """Shell out to the harpo CLI to (re)generate logs. NOT run by default.
+
+    Returns True when the run succeeded. ⚠️ Both invocations used to be wrong:
+    the CLI takes a task DIRECTORY, not a bare id, and `pipeline` has no
+    --provider (only --repair-provider/--optimize-provider). Both failures were
+    swallowed, so the suite silently re-aggregated whatever stale logs existed.
+    """
+    task_dir = str(REPO_ROOT / "tasks" / task_id)
     if mode == "pipeline":
-        cmd = [sys.executable, "-m", "harpo", "pipeline", task_id, "--provider", "recipe"]
+        cmd = [sys.executable, "-m", "harpo", "pipeline", task_dir,
+               "--optimize-provider", "recipe"]
     else:
-        cmd = [sys.executable, "-m", "harpo", "optimize", task_id, "--provider", "recipe"]
+        cmd = [sys.executable, "-m", "harpo", "optimize", task_dir,
+               "--provider", "recipe"]
     print("[run] " + " ".join(cmd), file=sys.stderr)
     try:
-        subprocess.run(cmd, cwd=str(REPO_ROOT), check=False)
+        rc = subprocess.run(cmd, cwd=str(REPO_ROOT), check=False).returncode
     except OSError as e:
         print("[run] failed to launch for {}: {}".format(task_id, e), file=sys.stderr)
+        return False
+    if rc != 0:
+        print("[run] {} exited {}".format(task_id, rc), file=sys.stderr)
+        return False
+    return True
 
 
 def main(argv=None):
@@ -348,8 +362,14 @@ def main(argv=None):
             return 1
 
     if args.run:
-        for tid, _top, _spec in tasks:
-            run_harpo(tid, args.run_mode)
+        failed = [tid for tid, _top, _spec in tasks
+                  if not run_harpo(tid, args.run_mode)]
+        if failed:
+            # Aggregating after a failed regeneration would silently republish
+            # stale logs under a "regenerated locally" claim.
+            print("[run] regeneration failed for: {} — refusing to aggregate"
+                  .format(", ".join(failed)), file=sys.stderr)
+            return 1
 
     rows = []
     metas = []

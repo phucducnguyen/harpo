@@ -249,5 +249,56 @@ class TestLoadTaskObjective(unittest.TestCase):
         self.assertIsNone(self._load(throughput_target="fast").throughput_target)
 
 
+class TestMissingMetricNeverWins(unittest.TestCase):
+    """A metric the tool did not report must never outrank a measured one.
+
+    Fix 1 moved throughput scoring from per-loop ``ii`` to design-level
+    ``interval_max`` but left the missing-value handling alone: ``neg()``
+    returned 0 for an absent metric while real values are negated, so absent
+    sorted as the MAXIMUM. The defect the paper credits Fix 1 with closing
+    reproduced on interval_max, on adp, and inside the satisfice branch.
+    ``csynth_pass`` is reachable with ``interval_max`` absent (parser.py only
+    populates it from the SummaryOfOverallLatency block), so this is not
+    hypothetical -- atax_001__recipe.json cand_0004 is a committed instance.
+    """
+
+    def test_missing_interval_loses_to_measured_under_speed_first(self):
+        absent = make_candidate("ABSENT", objective="speed_first",
+                                csynth_metrics=metrics(interval_max=None, lut=99999))
+        real = make_candidate("REAL", objective="speed_first",
+                              csynth_metrics=metrics(interval_max=1024, lut=573))
+        self.assertIs(best([absent, real]), real)
+
+    def test_missing_interval_is_not_filed_as_a_target_meeter(self):
+        absent = make_candidate("ABSENT", objective="satisfice_then_area",
+                                throughput_target=256,
+                                csynth_metrics=metrics(interval_max=None, lut=90000))
+        meeter = make_candidate("MEET", objective="satisfice_then_area",
+                                throughput_target=256,
+                                csynth_metrics=metrics(interval_max=200, lut=100))
+        misser = make_candidate("MISS", objective="satisfice_then_area",
+                                throughput_target=256,
+                                csynth_metrics=metrics(interval_max=300, lut=100))
+        self.assertIs(best([meeter, absent]), meeter)
+        # Even a candidate that measured and MISSED beats one that reported nothing.
+        self.assertIs(best([misser, absent]), misser)
+
+    def test_missing_metrics_lose_under_adp(self):
+        absent = make_candidate("ABSENT", objective="adp",
+                                csynth_metrics=metrics(interval_max=None, lut=99999))
+        real = make_candidate("REAL", objective="adp",
+                              csynth_metrics=metrics(interval_max=10, lut=573))
+        self.assertIs(best([absent, real]), real)
+
+    def test_adp_ignores_per_loop_ii(self):
+        """adp must be area x interval_max, as the paper states -- not a
+        fallback chain that lets diagnostic-only ``ii`` decide the ranking."""
+        by_ii = make_candidate("BY_II", objective="adp",
+                               csynth_metrics=metrics(interval_max=None, ii=7, lut=1000))
+        by_interval = make_candidate("BY_IV", objective="adp",
+                                     csynth_metrics=metrics(interval_max=10, lut=1000))
+        self.assertIs(best([by_ii, by_interval]), by_interval)
+
+
 if __name__ == "__main__":
     unittest.main()

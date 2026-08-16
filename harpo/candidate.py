@@ -161,17 +161,26 @@ def score_measured(cand: Candidate) -> tuple:
     return _score_from(cand, cand.impl_metrics or {})
 
 
+# A metric the tool did not report must sort BELOW every measured value, never
+# above. Real lower-is-better metrics are non-negative and get negated, so any
+# finite number below -0 works; -1e308 is JSON-serializable (float('-inf') would
+# emit `-Infinity`, which is not valid JSON and would poison the evidence logs).
+# ⚠️ Absent used to score 0 here, i.e. the MAXIMUM — the same defect Fix 1 is
+# credited with removing from per-loop `ii`, reproduced on interval_max and adp.
+_MISSING = -1e308
+
+
 def _score_from(cand: Candidate, m: dict) -> tuple:
     """Build the lexicographic objective tuple from an explicit metrics dict."""
 
     def neg(key):  # lower-is-better raw metric -> negate so higher score = better
         v = m.get(key)
-        return -v if isinstance(v, (int, float)) else 0
+        return -v if isinstance(v, (int, float)) else _MISSING
 
     a = area_score(m)
-    na = -a if isinstance(a, (int, float)) else 0   # lower area -> higher score
+    na = -a if isinstance(a, (int, float)) else _MISSING
     ad = adp(m)
-    nad = -ad if isinstance(ad, (int, float)) else 0
+    nad = -ad if isinstance(ad, (int, float)) else _MISSING
 
     iv = neg("interval_max")        # throughput, on design-level interval_max
     lw = neg("latency_worst")
@@ -185,7 +194,14 @@ def _score_from(cand: Candidate, m: dict) -> tuple:
     elif obj in ("satisfice_then_area", "pareto_report"):
         tgt = cand.throughput_target
         ivmax = m.get("interval_max")
-        if isinstance(tgt, (int, float)) and isinstance(ivmax, (int, float)):
+        if not isinstance(ivmax, (int, float)):
+            # Throughput UNKNOWN: the candidate cannot have met a target it
+            # never measured. Rank -1, below both meeters (1) and missers (0).
+            # ⚠️ This branch used to be merged with "no target" and filed such a
+            # candidate as meets=1 — the rung reserved for meeters — so a design
+            # with no interval outranked every design that measured and missed.
+            ppa = (-1, _MISSING, na, nad)
+        elif isinstance(tgt, (int, float)):
             meets = 1 if ivmax <= tgt else 0
             if meets:
                 # met target -> rank by area, then throughput, then adp
@@ -194,9 +210,9 @@ def _score_from(cand: Candidate, m: dict) -> tuple:
                 # missed target -> drive throughput first, then area, then adp
                 ppa = (0, iv, na, nad)
         else:
-            # no usable target -> behaves like speed_first with an area tiebreak
-            # (the proper recipe-only target probe is a deferred next step).
-            # Exposed as a 4-tuple so lengths stay consistent with the gated case.
+            # no target configured -> speed_first with an area tiebreak. Every
+            # candidate in a run shares the task's target, so this branch is
+            # all-or-nothing and slot semantics stay consistent within a run.
             ppa = (1, iv, na, nad)
         s = (correctness_tier(cand), *ppa, -steps)
     else:  # "speed_first" (and legacy throughput/latency, folded in at load)

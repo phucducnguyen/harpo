@@ -90,13 +90,21 @@ class TestADP(unittest.TestCase):
         # area 0.1 * interval_max 256
         self.assertAlmostEqual(adp(m), 0.1 * 256, places=6)
 
-    def test_falls_back_to_latency_worst(self):
-        m = {"lut": 1000, "avail_lut": 10000, "latency_worst": 500, "ii": 7}
-        self.assertAlmostEqual(adp(m), 0.1 * 500, places=6)
+    def test_no_fallback_to_latency_worst(self):
+        """ADP is area x interval_max, full stop — no fallback chain.
 
-    def test_falls_back_to_ii(self):
+        ⚠️ These two cases previously asserted the OPPOSITE (fall back to
+        latency_worst, then to per-loop ii). That fallback made ii a live
+        ranking input, since adp is the first key under objective ``adp`` and
+        the last key in every satisfice branch — contradicting the documented
+        formula and the "ii is diagnostic-only" guarantee.
+        """
+        m = {"lut": 1000, "avail_lut": 10000, "latency_worst": 500, "ii": 7}
+        self.assertIsNone(adp(m))
+
+    def test_no_fallback_to_ii(self):
         m = {"lut": 1000, "avail_lut": 10000, "ii": 4}
-        self.assertAlmostEqual(adp(m), 0.1 * 4, places=6)
+        self.assertIsNone(adp(m))
 
     def test_none_when_throughput_missing(self):
         m = {"lut": 1000, "avail_lut": 10000}  # no throughput key at all

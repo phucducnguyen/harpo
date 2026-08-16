@@ -80,7 +80,7 @@ objective.
 Task & II & Latency (worst) & LUT & FF & Fmax (MHz) \\
 \midrule
 \texttt{mac8\_001}     & 4$\rightarrow$1 & 1026$\rightarrow$259 & 369$\rightarrow$315 & 153$\rightarrow$126 & 144.45$\rightarrow$144.45 \\
-\texttt{stencil3\_001} & 2$\rightarrow$1 & 514$\rightarrow$259  & 193$\rightarrow$435 & 95$\rightarrow$54   & 196.43$\rightarrow$149.81 \\
+\texttt{stencil3\_001} & 2$\rightarrow$1 & 514$\rightarrow$259  & 193$\rightarrow$435 & 95$\rightarrow$43   & 196.43$\rightarrow$149.81 \\
 \texttt{unroll8\_001}  & 8$\rightarrow$1 & 1026$\rightarrow$132 & 727$\rightarrow$597 & 451$\rightarrow$368 & 144.45$\rightarrow$144.45 \\
 \bottomrule
 \end{tabular}}
@@ -113,11 +113,16 @@ optimize & 0    & 0   & 0 \\
 \bottomrule
 \end{tabular}
 \caption{Token consumption by phase across the four demonstrated tasks of
-Table~\ref{tab:suite}: 2400 total tokens, 42 total tool calls (sum of
-\texttt{budget.spent} across phases). The optimize phase spends zero tokens
-because it is driven by the deterministic recipe library. \texttt{runs/SUITE.md}
-additionally logs two deterministic mock-repair fixtures (0 tokens, 6 further
-tool calls), excluded here because they exercise no LLM.}
+Table~\ref{tab:suite}: 2400 total tokens, 39 total tool calls (sum of
+\texttt{budget.spent} across phases: 11 + 14 + 11 optimize, 3 repair). The
+optimize phase spends zero tokens because it is driven by the deterministic
+recipe library. \texttt{runs/SUITE.md} additionally logs two deterministic
+mock-repair fixtures (0 tokens, 6 further tool calls), excluded here because
+they exercise no LLM. \textbf{Note on the \texttt{prop} column:} the budget key
+is named \texttt{llm\_calls} but the loop increments it once per \emph{provider
+proposal} regardless of provider, so recipe- and mock-driven rows carry nonzero
+values at zero tokens. Read it as a proposal count, not as evidence that a
+model was queried.}
 \label{tab:tokens}
 \end{table}
 
@@ -146,9 +151,9 @@ the latency column from \texttt{latency\_best}, while the per-task analysis uses
 \toprule
 Task & Phase & Repaired & Improved & II (base$\rightarrow$best) & Latency (base$\rightarrow$best) & LUT (base$\rightarrow$best) & FF (base$\rightarrow$best) & Fmax & Steps & Tokens (P/C/total) & Budget (csim/csynth/prop) \\
 \midrule
-\texttt{mac8\_001}       & optimize & --   & True & 4$\rightarrow$1 & 1026$\rightarrow$259 & 369$\rightarrow$315 & 153$\rightarrow$126 & 144.45 & 4 & 0/0/0 & 5/5/4 \\
-\texttt{stencil3\_001}   & optimize & --   & True & 2$\rightarrow$1 & 514$\rightarrow$259  & 193$\rightarrow$435 & 95$\rightarrow$54   & 149.81 & 3 & 0/0/0 & 4/4/3 \\
-\texttt{unroll8\_001}    & optimize & --   & True & 8$\rightarrow$1 & 1026$\rightarrow$132 & 727$\rightarrow$597 & 451$\rightarrow$368 & 144.45 & 4 & 0/0/0 & 5/5/4 \\
+\texttt{mac8\_001}       & optimize & --   & True & 4$\rightarrow$1 & 1026$\rightarrow$259 & 369$\rightarrow$315 & 153$\rightarrow$126 & 144.45 & 3 & 0/0/0 & 4/4/3 \\
+\texttt{stencil3\_001}   & optimize & --   & True & 2$\rightarrow$1 & 514$\rightarrow$259  & 193$\rightarrow$435 & 95$\rightarrow$43   & 149.81 & 4 & 0/0/0 & 5/5/4 \\
+\texttt{unroll8\_001}    & optimize & --   & True & 8$\rightarrow$1 & 1026$\rightarrow$132 & 727$\rightarrow$597 & 451$\rightarrow$368 & 144.45 & 3 & 0/0/0 & 4/4/3 \\
 \texttt{vadd\_buggy\_001} & repair  & True & --   & --              & --                   & --                  & --                  & --     & 2 & 2054/346/2400 & 2/0/1 \\
 \bottomrule
 \end{tabular}}

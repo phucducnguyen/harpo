@@ -113,14 +113,22 @@ def _summary_line(task_id: str, arm: str, result: dict) -> str:
             f"improved={result.get('improved')}")
 
 
-def run_arm(task_id: str, arm: str, *, skip_existing: bool) -> bool:
+def run_arm(task_id: str, arm: str, *, overwrite: bool) -> bool:
     """Run one (task, arm); write its log JSON. Returns True on a written log.
 
     Robust: any failure (exception, tool_unavailable surfaced as a thrown error)
-    is logged as a warning and the matrix continues."""
+    is logged as a warning and the matrix continues.
+
+    ⚠️ These files ARE the paper's evidence base, and the reproducibility
+    appendix tells readers to run this script and then compare against them.
+    Overwriting is therefore opt-IN, and a run that never reached synthesis is
+    refused outright: without Vitis, run_optimize does not raise, it returns a
+    degenerate result, which used to land on top of real committed evidence.
+    """
     out_path = CANONICAL_DIR / f"{task_id}__{arm}.json"
-    if skip_existing and out_path.exists():
-        print(f"skip (exists): {task_id} {arm} -> {out_path.name}")
+    if out_path.exists() and not overwrite:
+        print(f"skip (committed evidence exists): {task_id} {arm} -> "
+              f"{out_path.name}  [--overwrite to replace]")
         return False
 
     names = ARMS[arm][0]
@@ -129,6 +137,11 @@ def run_arm(task_id: str, arm: str, *, skip_existing: bool) -> bool:
         providers = cli._build_providers(str(task_dir), names)
         result = run_optimize(
             task, providers, csim_backend="gpp", synth_backend="vitis_hls")
+        if not (result.get("baseline_metrics") or {}):
+            print(f"REFUSED: {task_id} {arm} produced no baseline synthesis "
+                  f"metrics (Vitis unavailable?) — {out_path.name} left "
+                  f"untouched", file=sys.stderr)
+            return False
         # Strip the local log_path (machine-specific) before persisting.
         to_write = {k: v for k, v in result.items() if k != "log_path"}
         CANONICAL_DIR.mkdir(parents=True, exist_ok=True)
@@ -151,8 +164,11 @@ def main(argv=None) -> int:
                    help="comma-separated task ids to include (default: all)")
     p.add_argument("--arms", default=None,
                    help="comma-separated arms to include: recipe,llm,speed_first")
+    p.add_argument("--overwrite", action="store_true",
+                   help="REPLACE committed canonical evidence for the selected "
+                        "arms (default: existing files are left alone)")
     p.add_argument("--skip-existing", action="store_true",
-                   help="don't re-run an arm whose canonical json already exists")
+                   help=argparse.SUPPRESS)  # now the default; accepted, no-op
     args = p.parse_args(argv)
 
     only = {s.strip() for s in args.only.split(",") if s.strip()} if args.only else None
@@ -172,9 +188,14 @@ def main(argv=None) -> int:
     print(f"=== ablation matrix: {len(work)} run(s) -> {CANONICAL_DIR} ===")
     written = 0
     for task_id, arm in work:
-        if run_arm(task_id, arm, skip_existing=args.skip_existing):
+        if run_arm(task_id, arm, overwrite=args.overwrite):
             written += 1
     print(f"=== done: {written}/{len(work)} arm(s) written ===")
+    if written < len(work):
+        # A partial matrix must not exit 0 — the old behaviour reported success
+        # to a reader whose whole run had failed for want of Vitis.
+        print(f"=== {len(work) - written} arm(s) not written ===", file=sys.stderr)
+        return 1
     return 0
 
 

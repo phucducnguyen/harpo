@@ -77,10 +77,15 @@ def select_target(
             iv = _num(r.get("interval_max"))
             if iv is None:
                 continue
-            # Area cap: only enforce when we have both areas to compare.
+            # Area cap. ⚠️ An unknown candidate area is REFUSED, not admitted:
+            # skipping the cap when area_score is missing let an unmeasured
+            # design set the target, which is the same "absent sorts favourably"
+            # defect this scoring path had elsewhere. If there is no baseline
+            # area to compare against, the cap cannot be evaluated at all and
+            # the candidate is left in (the pre-existing, documented behaviour).
             cand_area = _num(r.get("area_score"))
-            if base_area is not None and base_area > 0 and cand_area is not None:
-                if cand_area > area_cap * base_area:
+            if base_area is not None and base_area > 0:
+                if cand_area is None or cand_area > area_cap * base_area:
                     continue
             if iv < best:
                 best = iv

@@ -59,12 +59,15 @@ def _build_raw(overall: Path, module: Path | None) -> dict:
     }
 
 
-def _check(label: str, overall_rel: str, top: str) -> bool:
+def _check(label: str, overall_rel: str, top: str) -> bool | None:
     overall = ROOT / overall_rel
     module = overall.parent / f"{top}_csynth.xml"
     if not overall.exists():
-        print(f"[SKIP] {label}: missing fixture {overall}")
-        return True  # absent fixture is not a failure of the fix
+        # ⚠️ "could not check" is NOT "passed". The fixtures live under runs/,
+        # which is gitignored, so a fresh clone has none — this used to return
+        # True and print ALL PASS having verified nothing.
+        print(f"[MISSING] {label}: no fixture at {overall}")
+        return None
 
     parsed = parse_csynth(_build_raw(overall, module))
     m = parsed.get("metrics") or {}
@@ -104,11 +107,27 @@ def _check(label: str, overall_rel: str, top: str) -> bool:
 
 
 def main() -> int:
-    ok = True
-    for label, overall_rel, top in FIXTURES:
-        ok = _check(label, overall_rel, top) and ok
-    print("\nselftest_csynth:", "ALL PASS" if ok else "FAILURES")
-    return 0 if ok else 1
+    """0 = every fixture checked and passed · 1 = a real failure ·
+    2 = INCONCLUSIVE, a fixture was absent so nothing was verified.
+
+    The three verdicts stay distinct on purpose: a checker that cannot run must
+    never be readable as a checker that passed.
+    """
+    results = [_check(label, rel, top) for label, rel, top in FIXTURES]
+    failed = [r for r in results if r is False]
+    missing = [r for r in results if r is None]
+
+    if failed:
+        print(f"\nselftest_csynth: FAILURES ({len(failed)}/{len(results)})")
+        return 1
+    if missing:
+        print(f"\nselftest_csynth: INCONCLUSIVE — {len(missing)}/{len(results)} "
+              f"fixture(s) absent, nothing verified. Fixtures are produced by a "
+              f"real csynth run and live under the gitignored runs/ tree; a "
+              f"fresh clone cannot run this check.")
+        return 2
+    print(f"\nselftest_csynth: ALL PASS ({len(results)}/{len(results)})")
+    return 0
 
 
 if __name__ == "__main__":

@@ -120,7 +120,7 @@ csim AND (b) strictly improves the score. Every forked candidate is re-run throu
 candidate is discarded and its metrics are never trusted. This is the structural
 guarantee behind "correctness before PPA": the agent can never trade a wrong-but-fast
 design up the ranking. (Proven by a hermetic test, `tests/test_optimize_safety.py`
-with `tasks/trap_breakscsim_001`; 136 unit tests total, all green.)
+with `tasks/trap_breakscsim_001`; 140 unit tests total, all green.)
 
 ## 2. The recipe library and the recipe-vs-LLM finding
 
@@ -206,8 +206,14 @@ Task `vadd_buggy_001` — vector add with a planted wrong operator
 | cost | $0 (local model) |
 
 Event trail: `cand_0000` csim functional_fail → the local LLM proposes "replace '-'
-with '+'" → applied whole-file → `cand_0001` csim pass (repaired). The `mock` provider
-abstained; the contract check (signature/testbench preserved) passed.
+with '+'" → applied whole-file → `cand_0001` csim pass (repaired); the contract check
+(signature/testbench preserved) passed.
+
+⚠️ This row was produced with `--provider ollama`. The CLI's *default* repair order
+is `mock,ollama`, and `tasks/vadd_buggy_001/mock_patch.json` encodes exactly this
+edit — so at the default the `mock` provider answers first and reproduces every
+figure here except the token counts, without contacting the LLM. It does **not**
+abstain.
 
 ### 3.2 Optimize — correctness-preserving PPA, zero tokens (recipe-driven)
 
@@ -215,9 +221,9 @@ PPA before → after, from each `runs/<task>/optimize_log.json`:
 
 | task | kernel | II | latency (worst) | LUT | FF | Fmax (MHz) | steps | winning pragma |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mac8_001` | windowed sum (×8) | 4 → **1** | 1026 → **259** | 369 → **315** | 153 → **126** | 144.45 → 144.45 | 4 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
-| `stencil3_001` | 1-D 3-tap stencil | 2 → **1** | 514 → **259** | 193 → 435 | 95 → 54 | 196.43 → 149.81 | 3 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
-| `unroll8_001` | 16-wide inner reduction | 8 → **1** | 1026 → **132** (≈7.8×) | 727 → **597** | 451 → **368** | 144.45 → 144.45 | 4 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
+| `mac8_001` | windowed sum (×8) | 4 → **1** | 1026 → **259** | 369 → **315** | 153 → **126** | 144.45 → 144.45 | 3 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
+| `stencil3_001` | 1-D 3-tap stencil | 2 → **1** | 514 → **259** | 193 → 435 | 95 → **43** | 196.43 → 149.81 | 4 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
+| `unroll8_001` | 16-wide inner reduction | 8 → **1** | 1026 → **132** (≈7.8×) | 727 → **597** | 451 → **368** | 144.45 → 144.45 | 3 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
 
 - `mac8_001` improved on the first candidate (II 4→1, latency 1026→259, *and* smaller:
   LUT 369→315, FF 153→126); later candidates produced no further gain and were
@@ -251,7 +257,7 @@ demo only.
 | optimize | 0 | 0 | 0 |
 | **all** | **2054** | **346** | **2400** |
 
-Totals: 4 tasks aggregated · **2400 total tokens** · **42 total tool calls** (sum of
+Totals: 4 tasks aggregated · **2400 total tokens** · **39 total tool calls** (sum of
 `budget.spent` across phases). The whole demonstrated suite — one real LLM repair plus
 three real-Vitis PPA optimizations — cost **2400 local tokens ($0)** and stayed well
 inside the per-task budgets (csim limit 20, csynth 10, llm_calls 30).
@@ -260,9 +266,9 @@ inside the per-task budgets (csim limit 20, csynth 10, llm_calls 30).
 
 | task | phase | repaired | improved | II (base→best) | latency (base→best) | LUT (base→best) | FF (base→best) | Fmax | steps | tokens (P/C/total) | budget (csim/csynth/llm) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| mac8_001 | optimize | — | True | 4→1 | 1026→259 | 369→315 | 153→126 | 144.45 | 4 | 0/0/0 | 5/5/4 |
-| stencil3_001 | optimize | — | True | 2→1 | 514→259 | 193→435 | 95→54 | 149.81 | 3 | 0/0/0 | 4/4/3 |
-| unroll8_001 | optimize | — | True | 8→1 | 1026→132 | 727→597 | 451→368 | 144.45 | 4 | 0/0/0 | 5/5/4 |
+| mac8_001 | optimize | — | True | 4→1 | 1026→259 | 369→315 | 153→126 | 144.45 | 3 | 0/0/0 | 4/4/3 |
+| stencil3_001 | optimize | — | True | 2→1 | 514→259 | 193→435 | 95→43 | 149.81 | 4 | 0/0/0 | 5/5/4 |
+| unroll8_001 | optimize | — | True | 8→1 | 1026→132 | 727→597 | 451→368 | 144.45 | 3 | 0/0/0 | 4/4/3 |
 | vadd_buggy_001 | repair | True | — | — | — | — | — | — | 2 | 2054/346/2400 | 2/0/1 |
 | conv2d_001 | optimize | — | **False** (baseline kept) | none→1¹ | 190→190 | 871→871 | 903→903 | 123.76 | 2 | 0/0/0 | 3/3/2 |
 
@@ -278,7 +284,7 @@ here is pre-fix only.
 ### 3.5 The scoring overhaul — two fixes, implemented
 
 The over-parallelization enabler (§2) is **two distinct defects** with **two distinct
-fixes**, both implemented and **re-baselined on real Vitis** (136/136 unit tests green; the
+fixes**, both implemented and **re-baselined on real Vitis** (140/140 unit tests green; the
 re-baseline numbers are in §3.6, and the §3.1–§3.4 tables are the *pre-fix* record). The full
 evidence table (21 rows / 8 kernels) and the optional Pareto/ADRS appendix are regenerable via
 `scripts/ablation_table.py` (→ `docs/ablations/canonical/TABLE.md`) and `scripts/pareto_view.py`
@@ -372,7 +378,7 @@ PPA under a metered tool budget.
 HARPO treats tool calls as the scarce resource the competition meters.
 **Per-task budgets** are honored by `policy_allows` checking `can(action)` before every
 csim/csynth/LLM call, with a held-back **reserve** so a winning candidate can always be
-re-verified at the end. The demonstrated suite spent 42 tool calls and 2400 tokens total
+re-verified at the end. The demonstrated suite spent 39 tool calls and 2400 tokens total
 — comfortably inside the per-task limits (csim 20, csynth 10, llm_calls 30). The budget
 also encodes **don't-waste rules**: no csynth before csim passes (stage ordering), and no
 fresh LLM call when the state is *repeated* or *regressed* (re-trying a failing fix burns
@@ -401,20 +407,24 @@ covered), 10 ns clock. The agent package is **stdlib-only**.
 One-liners (from RESULTS.md / README.md):
 
 ```bash
-source ~/tools/Xilinx/2025.2/Vitis/settings64.sh         # for any csynth/optimize/pipeline
+export HARPO_OLLAMA_URL=http://<ollama-host>:11434      # else the LLM silently no-ops
+source <Vitis-install>/2025.2/Vitis/settings64.sh       # for any csynth/optimize/pipeline
 python3 -m harpo repair   tasks/vadd_buggy_001 --provider ollama
 python3 -m harpo optimize tasks/mac8_001       --provider recipe,ollama
-python3 -m harpo pipeline tasks/vadd_buggy_001                       # repair then optimize
+python3 -m harpo pipeline tasks/vadd_buggy_001 --repair-provider ollama
 python3 scripts/run_suite.py                              # aggregate runs/ -> SUITE.md + SUITE.csv
 
-# the headline ablation:
-python3 -m harpo optimize tasks/mac8_001 --provider recipe   # -> docs/ablations/mac8_001_recipe.json
-python3 -m harpo optimize tasks/mac8_001 --provider ollama   # -> docs/ablations/mac8_001_ollama.json
+# the headline ablation — each writes runs/mac8_001/optimize_log.json. The CLI
+# never writes into docs/; the committed docs/ablations/*.json are ARCHIVED
+# records (several pre-fix) and are NOT produced by these commands:
+python3 -m harpo optimize tasks/mac8_001 --provider recipe
+python3 -m harpo optimize tasks/mac8_001 --provider ollama
 
 # offline self-tests (no Vitis, no LLM):
 python3 scripts/selftest.py            # parse_csim classification
 python3 scripts/selftest_recipes.py    # RecipeProvider emits valid C++ (g++ -fsyntax-only)
-python3 scripts/selftest_csynth.py     # parse_csynth resource-util% from stored XML
+python3 scripts/selftest_csynth.py     # parse_csynth resource-util% — needs a populated
+                                       # runs/ tree; exits 2 INCONCLUSIVE on a fresh clone
 ```
 
 Every run writes replayable JSON under `runs/<task_id>/` (per-candidate `{csim,csynth}_
@@ -429,7 +439,7 @@ per-experiment JSONs under `docs/ablations/` and `docs/case-study/`.
 
 ## 6. Limitations and future work
 
-**Implemented (was the top of this list; now code-complete + re-baselined, 136/136 tests green — §3.5/§3.6):**
+**Implemented (was the top of this list; now code-complete + re-baselined, 140/140 tests green — §3.5/§3.6):**
 
 - **Fix 1 — throughput scored on the design `interval_max`, not the per-loop II.** The
   old score's throughput term was the worst per-loop `PipelineII`; a *fully-unrolled* loop

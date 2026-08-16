@@ -139,7 +139,7 @@ These ``don't-waste rules'' make tool calls---the scarce resource the
 setting meters---the budgeted quantity: no csynth before csim
 passes, and no fresh LLM call when re-trying a failing fix would burn
 budget for nothing. The four demonstrated tasks of Sec.~\ref{app:suite} spent
-\textbf{42 tool calls} and \textbf{2400 tokens} total---comfortably inside the
+\textbf{39 tool calls} and \textbf{2400 tokens} total---comfortably inside the
 per-task limits (csim~20, csynth~10, llm\_calls~30).
 
 \subsection{The correctness-dominated lexicographic score}\label{app:arch:score}
@@ -194,5 +194,5 @@ are never trusted. This is the structural guarantee behind
 design up the ranking. The invariant is enforced by the loop's control flow
 and covered by a hermetic regression test,
 \texttt{tests/test\_optimize\_safety.py} with
-\texttt{tasks/trap\_breakscsim\_001}; \textbf{136 unit tests} total, all
+\texttt{tasks/trap\_breakscsim\_001}; \textbf{140 unit tests} total, all
 green.

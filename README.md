@@ -2,7 +2,7 @@
 
 **A budget-aware LLM agent for HLS that repairs C/C++ kernels to correctness, then optimizes QoR — and never trusts a patch it hasn't re-verified.**
 
-![tests](https://img.shields.io/badge/tests-136_passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-140_passing-brightgreen)
 ![deps](https://img.shields.io/badge/dependencies-stdlib_only-blue)
 ![llm](https://img.shields.io/badge/LLM-local_Ollama_·_%240_API-orange)
 ![license](https://img.shields.io/badge/license-MIT-lightgrey)
@@ -52,8 +52,8 @@ over-parallelization failure mode this project is about:
 | Correctness | 10k-trial golden-model csim ✔ | re-verified ✔ |
 
 ⚠️ Those are **csynth estimates**. Measured post-route (Vivado, out-of-context,
-same part/clock) the estimator is 2.5–3.5× pessimistic on these two designs
-(21,013/8,527 = 2.46 on the fix; 89,773/25,853 = 3.47 on the baseline) and the archived design
+same part/clock) the estimator is pessimistic by **2.46×** on the fix
+(21,013/8,527) and **3.47×** on the baseline (89,773/25,853), and the archived design
 **does place**: 25,853 LUT (48.6%), timing met at 0.010 ns slack, vs the fixed
 design's 8,527 LUT (16.0%) at 0.893 ns slack. The fix still dominates on
 measurement; the "168.7% / fails timing" verdict is real at the *estimate* level
@@ -97,14 +97,22 @@ python3 -m harpo repair tasks/vadd_buggy_001 --provider ollama
 source <Vitis-install>/2025.2/Vitis/settings64.sh
 python3 -m harpo run      tasks/vadd_001    --stage csynth --backend vitis_hls
 python3 -m harpo optimize tasks/mac8_001    --provider recipe,ollama
-python3 -m harpo pipeline tasks/vadd_buggy_001               # repair, then optimize
+python3 -m harpo pipeline tasks/vadd_buggy_001 --repair-provider ollama
 ```
+
+⚠️ **`--repair-provider` defaults to `mock,ollama`**, and
+`tasks/vadd_buggy_001/mock_patch.json` encodes the exact fix. Left at the
+default, the repair phase replays that fixture at **0 tokens without contacting
+the LLM**, reproducing every repair number below *except* the token counts.
+Pass `--repair-provider ollama` (as above) to reproduce the LLM result.
+The LLM endpoint must be reachable: export `HARPO_OLLAMA_URL` first, or the
+provider degrades silently and the run reports "no provider produced a patch".
 
 Each subcommand prints a JSON summary plus a one-line verdict on stderr and
 writes a log under `runs/<task>/`:
 
 - `repair`   → `"repaired": true` once a forked candidate passes csim
-  (`vadd_buggy_001` is fixed in **2 steps / 1 LLM call** by the local model).
+  (`vadd_buggy_001` is fixed in **2 steps / 1 proposal** by the local model).
 - `optimize` → `"improved": true` when a kept candidate beats the baseline
   (`mac8_001`: **interval_max 1024→256, latency 1026→259** at **0 LLM tokens**).
 - `pipeline` → `REPAIRED+IMPROVED` when both phases land, on one shared budget.
@@ -128,8 +136,10 @@ deliberate fixes keep the agent pointed at the *right hardware objective*:
 
 1. **Metric.** Throughput is scored on the design-level **`interval_max`**,
    never per-loop `ii` — a fully-unrolled loop reports `ii = None`, which used
-   to sort as 0 and spuriously reward over-unrolling. `interval_max` is always
-   reported and monotone; `ii` is diagnostic-only.
+   to sort as 0 and spuriously reward over-unrolling. `interval_max` is present
+   whenever Vitis emits the overall-latency block; a candidate lacking it ranks
+   BELOW every candidate that measured one (absent never sorts favourably).
+   `ii` is diagnostic-only and cannot reach the ranking, not even via ADP.
 2. **Policy.** A per-task **objective** enum — `speed_first | area_first |
    adp | satisfice_then_area | pareto_report` (default `satisfice_then_area`) —
    picks the QoR ordering: meet the throughput target, *then* minimize
@@ -189,7 +199,7 @@ Highlights (full numbers in the table; the recipe-vs-LLM area lesson in
   `matmul_001` `256→44`).
 - Where no target is given (`atax_001`, `bicg_001`, `lns_mac_001`), the probe
   supplies the ceiling at 0 tokens before the loop runs.
-- **136 unit tests green:** `python3 -m unittest discover -s tests`.
+- **140 unit tests green:** `python3 -m unittest discover -s tests`.
 
 Toolchain was proven via two Gate-0 milestones on Linux with **Vitis HLS
 2025.2** (free on Linux pre-2026.1) — including the install gotcha (the 2025.2
@@ -253,9 +263,17 @@ in **[docs/TRACK-A-COVERAGE.md](docs/TRACK-A-COVERAGE.md)**.
 ## Paper
 
 The preprint source lives in [`paper/`](paper/) (IEEE two-column; build
-instructions in [paper/README.md](paper/README.md)). Every quantitative claim
-in it traces to
-[docs/ablations/canonical/TABLE.md](docs/ablations/canonical/TABLE.md).
+instructions in [paper/README.md](paper/README.md)).
+
+Quantitative claims trace to three places, not one — the split is stated in the
+paper itself and repeated here so this page does not promise more than the
+repository holds:
+
+- the optimize-arm results trace to
+  [docs/ablations/canonical/TABLE.md](docs/ablations/canonical/TABLE.md);
+- the aggregate suite and token-by-phase tables are regenerated locally from
+  `runs/`, which is **not committed**;
+- the post-route fidelity numbers come from `docs/case-study/implverify_*.json`.
 
 ## License
 

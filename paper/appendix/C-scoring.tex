@@ -129,13 +129,16 @@ LLM arm in fact did (Table~\ref{tab:recipe-vs-llm}).
 \subsection{The two fixes, in depth}\label{app:scoring:fixes}
 
 The over-parallelization enabler is \textbf{two distinct defects} with \textbf{two
-distinct fixes}, both implemented and re-baselined on real Vitis (136/136 unit tests
+distinct fixes}, both implemented and re-baselined on real Vitis (140/140 unit tests
 green).
 
 \paragraph{Fix 1 --- metric: throughput is scored on the design \texttt{interval\_max}, not the per-loop \texttt{PipelineII}.}
 The per-loop term sorted a fully-unrolled loop's missing II (\texttt{None}) as neutral
 0, beating a real II$\geq$1 and rewarding over-unrolling. \texttt{interval\_max} is
-always reported by Vitis; per-loop \texttt{ii} is now diagnostic-only. Under it, the
+reported by Vitis whenever the overall-latency block is present; per-loop
+\texttt{ii} is now diagnostic-only. A candidate whose report lacks that block
+carries no \texttt{interval\_max}, and the scorer ranks it below every candidate
+that measured one. Under it, the
 accepted \texttt{mac8\_001} interval-3073 design correctly loses to the baseline
 (1024), and the old \texttt{conv2d\_001} over-pragma'd candidate (interval 328,
 \texttt{docs/ablations/conv2d\_001\_optimize.json})
@@ -247,9 +250,18 @@ Table~\ref{tab:recipe-vs-llm} is the head-to-head, recipe vs.\ raw LLM under the
 corrected scoring (the four re-baselined LLM arms). On structured-reduction kernels the
 raw LLM over-parallelizes and, under the corrected scoring, \textbf{wins nothing}; the
 precise recipe applies the single unblocking pragma. On kernels the safe recipes cannot
-crack both are null; only on \texttt{atax\_001} are the two arms comparable, and there
-the recipe wins marginally. The \texttt{recipe}-before-\texttt{ollama}
-default is what captures the best of both.
+crack both are null; only on \texttt{atax\_001} are the two arms comparable, and
+there we report \emph{no ordering}. The two designs differ by 4 FF out of 5591 ---
+the same partitioning at a different factor --- and the 0.47\% area margin lies two
+orders of magnitude inside the 1.60--2.73$\times$ estimate error measured in
+Appendix~\ref{app:coverage}. We therefore withdraw the marginal recipe win reported
+previously. Post-route measurement of this pool inverts the ordering entirely: the
+candidate our objective \emph{rejected} on estimated area (4068 LUT estimated)
+measures 1814 LUT at interval 50 --- the smallest \emph{and} fastest of the three.
+On the single kernel where we obtained ground truth, area-driven satisficing on
+estimates selected against the best measured design. We cannot separate a limitation
+of ranking-on-estimates from a limitation of the satisfice policy with one kernel.
+The \texttt{recipe}-before-\texttt{ollama} default is what captures the best of both.
 
 \begin{table*}[t]
 \centering\small
@@ -262,9 +274,15 @@ kernel & recipe arm & raw-LLM arm & winner \\
 mac8\_001   & interval 256 / LUT 315                          & no improvement (full-unroll interval 3073 discarded) & \textbf{recipe} \\
 matmul\_001 & interval 44 / LUT 3121 \emph{(satisfice, target 72)} & no improvement (no candidate meets target)          & \textbf{recipe} \\
 gemm\_001   & no improvement (probe fallback, target 2060)    & no improvement                                       & tie (both null) \\
-atax\_001   & interval 64 / LUT 3907 / ADP 22.0               & interval 81 / LUT 3994 / ADP 28.0                    & recipe (marginal) \\
+atax\_001   & interval 64 / LUT 3907 / ADP 22.0               & interval 81 / LUT 3994 / ADP 28.0                    & no ordering$^{\dagger}$ \\
 \bottomrule
 \end{tabular}
+
+\smallskip
+\raggedright\footnotesize $^{\dagger}$Withdrawn from ``recipe (marginal)''. The
+two designs differ by 4 FF out of 5591 and the 0.47\% area margin is far inside
+the measured estimate error; post-route the ordering inverts. See the discussion
+above.
 \end{table*}
 
 LLM-arm re-baselines for the remaining hand-built kernels, and additional PolyBench
@@ -274,11 +292,19 @@ above.
 \paragraph{Fairness of the derived target.} The satisfice target in the
 \texttt{gemm\_001} and \texttt{atax\_001} rows comes from the Fix-3 probe, which is
 \emph{recipe-only} (\S\ref{app:scoring:fixes}), and that same target then scores both
-arms; \texttt{mac8\_001} (256) and \texttt{matmul\_001} (72) ship hand-set targets, so
-the concern below applies only to the two probe-derived rows. The probe
-is the agent's autonomous fallback when a task ships no target, so using it here
-matches how the agent runs in practice; even so, it lets the recipe arm help define
-the objective the LLM arm is judged against. Two changes would make the comparison
+arms. \textbf{The concern is not confined to those rows.} On
+\texttt{mac8\_001} (256), \texttt{stencil3\_001} (257) and \texttt{unroll8\_001}
+(128) the hand-set target equals exactly the \texttt{interval\_max} the recipe arm
+attains, so whether a target is hand-set or probe-derived, its ceiling is defined by
+the deterministic arm that is then evaluated against it. This is load-bearing for the
+headline: preferring the 315-LUT recipe design over the 13{,}194-LUT LLM design is
+conditional on a ceiling of 256, and inverts for any target below 255. We report that
+comparison as conditional on a recipe-attainable target, not as an unconditional
+ranking. Nor can the probe escape it --- the probe is recipe-only by construction, so
+no target available inside this design is neutral between the arms. Deriving a target
+from a specification rather than from an achieved result is the obvious next step and
+is not done here. The probe is the agent's autonomous fallback when a task ships no
+target, so using it matches how the agent runs in practice. Two changes would make the comparison
 fully neutral, and we leave both to future validation. An externally supplied
 \texttt{throughput\_target}, of the kind a real evaluator provides, would keep either
 arm from setting it. A target-sensitivity sweep---scaling the target across, say,

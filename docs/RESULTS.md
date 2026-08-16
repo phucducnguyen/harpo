@@ -15,7 +15,9 @@ The scorer now has two layers, both correctness-dominated (the csim/csynth corre
 tier always dominates — no PPA win can outrank a correct-but-faster candidate over a
 broken one):
 
-- **Throughput metric = design `interval_max`** (always reported by Vitis), *not* the
+- **Throughput metric = design `interval_max`** (reported by Vitis whenever the
+  overall-latency block is present; a candidate without it ranks below every candidate
+  that measured one), *not* the
   worst per-loop `PipelineII`. The old per-loop term sorted a fully-unrolled loop's
   missing II (`None`) as neutral 0, so it *beat* a real II≥1 and the loop rewarded
   over-unrolling (it once accepted a `mac8_001` design at interval 3073, worse than the
@@ -31,7 +33,8 @@ broken one):
   used/available across LUT/FF/DSP/BRAM, **no per-resource weights** (scarcity emerges
   from the denominators, avoiding double-counting); falls back to a per-part capacity
   table (xc7z020) when the report lacks `avail_*`. `adp = area_score × interval_max`
-  (fallback latency_worst→ii). Code-complete, 136/136 unit tests green.
+  — no fallback chain, so per-loop `ii` can never reach the ranking. Code-complete,
+  140/140 unit tests green.
 
 ## Canonical ablation table (source of truth)
 
@@ -165,8 +168,14 @@ are the record. The honest gradient:
   candidate meets the target → its row keeps the baseline.
 - **gemm_001 — tie (both null).** Neither recipe (probe fallback) nor raw LLM improves on the
   baseline.
-- **atax_001 — comparable, recipe marginal.** Recipe interval 64 / LUT 3907 / ADP 22.0 vs raw
-  LLM interval 81 / LUT 3994 / ADP 28.0 — both meet the target, recipe slightly smaller/faster.
+- **atax_001 — comparable; no safe winner.** Recipe interval 64 / LUT 3907 / ADP 22.0 vs raw
+  LLM interval 81 / LUT 3994 / ADP 28.0 — both meet the target. ⚠️ These are **csynth
+  estimates**, and the 0.47% area margin is orders of magnitude below the 1.60–2.73×
+  estimate error measured in `docs/case-study/implverify_*.json`. Post-route
+  (`implverify_atax_001_2026-07-16.json`) the ordering inverts: 3907→1923, 3994→1927,
+  and the candidate this loop **rejected** on estimated area measures 1814 LUT at
+  interval 50 — smaller *and* faster than the design shipped. Do not read a winner
+  off this row.
 
 Stated honestly: on the structured-reduction kernels (mac8, matmul) the raw LLM
 **over-parallelizes and now wins nothing** under honest scoring, while the precise recipe
@@ -230,8 +239,13 @@ cand_0001: csim pass -> PASS  (repaired)
 ```
 
 The local LLM (`ollama` provider) made the one-character functional fix in a single
-call; the `mock` provider abstained (no matching edit), the contract check passed
-(signature/testbench preserved), and the forked candidate re-passed csim.
+call, the contract check passed (signature/testbench preserved), and the forked
+candidate re-passed csim.
+
+⚠️ Reproduced with `--provider ollama`. At the CLI's default repair order
+(`mock,ollama`) the `mock` provider answers first — `tasks/vadd_buggy_001/mock_patch.json`
+encodes this exact edit — and reproduces every figure above except the token counts,
+with no LLM contacted. `mock` does **not** abstain here.
 
 ## 2. Optimize — correctness-preserving PPA, zero tokens (recipe-driven)
 
@@ -252,9 +266,9 @@ PPA before → after (from each `runs/<task>/optimize_log.json`):
 
 | task | kernel | II | latency (worst) | LUT | FF | Fmax (MHz) | steps | winning pragma |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mac8_001` | windowed sum (×8) | 4 → **1** | 1026 → **259** | 369 → **315** | 153 → **126** | 144.45 → 144.45 | 4 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
-| `stencil3_001` | 1-D 3-tap stencil | 2 → **1** | 514 → **259** | 193 → 435 | 95 → 54 | 196.43 → 149.81 | 3 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
-| `unroll8_001` | 16-wide inner reduction | 8 → **1** | 1026 → **132** (≈7.8×) | 727 → **597** | 451 → **368** | 144.45 → 144.45 | 4 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
+| `mac8_001` | windowed sum (×8) | 4 → **1** | 1026 → **259** | 369 → **315** | 153 → **126** | 144.45 → 144.45 | 3 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
+| `stencil3_001` | 1-D 3-tap stencil | 2 → **1** | 514 → **259** | 193 → 435 | 95 → **43** | 196.43 → 149.81 | 4 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
+| `unroll8_001` | 16-wide inner reduction | 8 → **1** | 1026 → **132** (≈7.8×) | 727 → **597** | 451 → **368** | 144.45 → 144.45 | 3 | `ARRAY_PARTITION cyclic factor=8 dim=1` on `in` |
 
 Notes, grounded in the logs:
 - **`mac8_001`** improved on the very first candidate (II 4→1, latency 1026→259,
@@ -376,7 +390,7 @@ deterministic recipes first, the LLM only for the tail the catalogue can't reach
 | optimize | 0 | 0 | 0 |
 | **all** | **2054** | **346** | **2400** |
 
-Totals: 4 tasks aggregated · **2400 total tokens** · **42 total tool calls** (sum of
+Totals: 4 tasks aggregated · **2400 total tokens** · **39 total tool calls** (sum of
 `budget.spent` across phases). The whole demonstrated suite — one real LLM repair plus
 three real-Vitis PPA optimizations — cost **2400 local tokens ($0)** and stayed well
 inside the per-task budgets (`csim` limit 20, `csynth` 10, `llm_calls` 30).
@@ -385,9 +399,9 @@ inside the per-task budgets (`csim` limit 20, `csynth` 10, `llm_calls` 30).
 
 | task | phase(s) | repaired | improved | II (base→best) | latency (base→best) | LUT (base→best) | FF (base→best) | Fmax | steps | tokens(P/C/total) | budget (csim/csynth/llm) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| mac8_001 | optimize | — | True | 4→1 | 1026→259 | 369→315 | 153→126 | 144.45 | 4 | 0/0/0 | 5/5/4 |
-| stencil3_001 | optimize | — | True | 2→1 | 514→259 | 193→435 | 95→54 | 149.81 | 3 | 0/0/0 | 4/4/3 |
-| unroll8_001 | optimize | — | True | 8→1 | 1026→132 | 727→597 | 451→368 | 144.45 | 4 | 0/0/0 | 5/5/4 |
+| mac8_001 | optimize | — | True | 4→1 | 1026→259 | 369→315 | 153→126 | 144.45 | 3 | 0/0/0 | 4/4/3 |
+| stencil3_001 | optimize | — | True | 2→1 | 514→259 | 193→435 | 95→43 | 149.81 | 4 | 0/0/0 | 5/5/4 |
+| unroll8_001 | optimize | — | True | 8→1 | 1026→132 | 727→597 | 451→368 | 144.45 | 3 | 0/0/0 | 4/4/3 |
 | vadd_buggy_001 | repair | True | — | — | — | — | — | — | 2 | 2054/346/2400 | 2/0/1 |
 
 _Skipped (no phase log yet): `vadd_001` (Gate-0 toolchain proof — see GATE0.md),

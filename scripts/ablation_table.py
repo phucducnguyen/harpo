@@ -217,8 +217,18 @@ def _metric(metrics: dict | None, key: str):
 
 
 def best_metrics_of(log: dict) -> dict | None:
-    """The best design's metrics: prefer ``best_metrics``, else look up
-    ``best_candidate`` in ``candidates`` and use its ``csynth_metrics``."""
+    """The best design's metrics, at the fidelity the winner was CHOSEN at.
+
+    ⚠️ ``best_metrics`` is always the csynth ESTIMATE, even on a run whose
+    ``winner_fidelity`` is ``post_route``. Preferring it unconditionally
+    published estimates under a measured label — in the committed case-study
+    logs the gap is 2.2-2.5x (atax 4068 vs 1814, lns_mac 21013 vs 8527). When
+    the winner was picked from measurements, the measurements are the answer.
+    """
+    if log.get("winner_fidelity") == "post_route":
+        bim = log.get("best_impl_metrics")
+        if bim:
+            return bim
     bm = log.get("best_metrics")
     if bm:
         return bm
